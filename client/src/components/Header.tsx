@@ -497,6 +497,12 @@ export function Header({
                 >
                   <ShieldCheck className="w-4 h-4 text-violet-600" /> Check Valve
                 </MenubarItem>
+                <MenubarItem
+                  onClick={() => addNode("turbine", { x: 200, y: 300 })}
+                  className="gap-2"
+                >
+                  <Settings2 className="w-4 h-4 text-teal-600" /> Turbine
+                </MenubarItem>
               </MenubarContent>
             </MenubarMenu>
 
