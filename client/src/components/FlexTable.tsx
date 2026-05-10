@@ -103,7 +103,7 @@ const COLS: Record<FilterKey, ColKey[]> = {
   flowBoundary:['rowNum','unitToggle','label','nodeNum','schedNum','qSchedPairs','comment'],
   pump:        ['rowNum','unitToggle','label','nodeNum','elevation','pumpStatus','pumpType','rq','rhead','rspeed','rtorque','wr2','comment'],
   checkValve:  ['rowNum','unitToggle','label','nodeNum','elevation','valveStatus','valveDiam','comment'],
-  turbine:     ['rowNum','unitToggle','label','nodeNum','elevation','turbineType','syncSpeed','turbWr2','turbFriction','windage','operationMode','vScheduleNum','comment'],
+  turbine:     ['rowNum','unitToggle','label','nodeNum','elevation','turbineType','syncSpeed','turbWr2','turbFriction','windage','operationMode','vScheduleNum','vSchedulePairs','comment'],
 };
 
 // ─── Pairs editor state ───────────────────────────────────────────────────────
@@ -111,7 +111,7 @@ interface PairsEditorState {
   open: boolean;
   rowId: string;
   rowKind: 'node' | 'edge';
-  pairsType: 'qSchedule' | 'hSchedule' | 'shapePairs';
+  pairsType: 'qSchedule' | 'hSchedule' | 'shapePairs' | 'vSchedule';
   scheduleNumber?: number;
 }
 
@@ -485,6 +485,7 @@ function ColHeader({ col, unit }: { col: ColKey; unit: UnitSystem }) {
     valveStatus: 'Status', valveDiam: `Diam (${L})`,
     turbineType: 'TCHAR Type', syncSpeed: 'Sync Speed (RPM)', turbWr2: 'WR²',
     turbFriction: 'Friction', windage: 'Windage', operationMode: 'Mode', vScheduleNum: 'V Sched #',
+    vSchedulePairs: 'V Schedule (T/G pairs)',
     comment: 'Comment',
   };
   return (
@@ -496,7 +497,7 @@ function ColHeader({ col, unit }: { col: ColKey; unit: UnitSystem }) {
 
 // ─── Row cell renderer ────────────────────────────────────────────────────────
 function RowCells({
-  col, row, idx, unit, globalUnit, changeEdge, changeNode, hSchedules, qSchedules, onOpenPairsEditor, onSetUnit,
+  col, row, idx, unit, globalUnit, changeEdge, changeNode, hSchedules, qSchedules, vSchedules, onOpenPairsEditor, onSetUnit,
   isHighlighted, onHighlightRow, pcharData,
 }: {
   col: ColKey;
@@ -508,7 +509,8 @@ function RowCells({
   changeNode: (f: string, v: string) => void;
   hSchedules: any[];
   qSchedules: Record<number, { time: number; flow: number | string }[]>;
-  onOpenPairsEditor: (rowId: string, rowKind: 'node' | 'edge', pairsType: 'qSchedule' | 'hSchedule' | 'shapePairs', scheduleNumber?: number) => void;
+  vSchedules: Record<number, { t: number; g: number }[]>;
+  onOpenPairsEditor: (rowId: string, rowKind: 'node' | 'edge', pairsType: 'qSchedule' | 'hSchedule' | 'shapePairs' | 'vSchedule', scheduleNumber?: number) => void;
   onSetUnit: (id: string, kind: 'node' | 'edge', unit: UnitSystem) => void;
   isHighlighted: boolean;
   onHighlightRow: () => void;
@@ -951,6 +953,22 @@ function RowCells({
         dimmed={!isTurbine || (d.operationMode !== 'TURBGOV' && d.operationMode !== 'EMERGENCY')}
         onChange={v => changeNode('vScheduleNumber', v)} testId={`cell-vschednum-${row.id}`} />
     );
+    case 'vSchedulePairs': {
+      const opMode = d.operationMode as string;
+      const hasVSched = isTurbine && (opMode === 'TURBGOV' || opMode === 'EMERGENCY');
+      if (!hasVSched) return <NACell key={col} minW="min-w-[150px]" />;
+      const schedNum = Number(d.vScheduleNumber ?? 1);
+      const pts: { t: number; g: number }[] = vSchedules[schedNum] || [];
+      const pairs: PairPreview[] = pts.map(p => ({ time: p.t, value: p.g }));
+      return (
+        <PairsPreviewCell
+          key={col}
+          pairs={pairs}
+          applicable={true}
+          onEdit={() => onOpenPairsEditor(row.id, 'node', 'vSchedule', schedNum)}
+        />
+      );
+    }
     case 'comment': return (
       <EditableCell key={col} value={d.comment ?? ''} onChange={v => change('comment', v)}
         testId={`cell-comment-${row.id}`} minW="min-w-[160px]" />
@@ -961,7 +979,7 @@ function RowCells({
 
 // ─── Main table ───────────────────────────────────────────────────────────────
 function UnifiedTable({
-  rows, filter, unit, hSchedules, qSchedules, pcharData,
+  rows, filter, unit, hSchedules, qSchedules, vSchedules, pcharData,
   onChangeEdge, onChangeNode, onSelectEdge, onSelectNode, onOpenPairsEditor, onSetUnit,
 }: {
   rows: UnifiedRow[];
@@ -969,12 +987,13 @@ function UnifiedTable({
   unit: UnitSystem;
   hSchedules: any[];
   qSchedules: Record<number, { time: number; flow: number | string }[]>;
+  vSchedules: Record<number, { t: number; g: number }[]>;
   pcharData: Record<number, PcharType>;
   onChangeEdge: (id: string, field: string, val: string, data: any) => void;
   onChangeNode: (id: string, field: string, val: string, data: any) => void;
   onSelectEdge: (id: string) => void;
   onSelectNode: (id: string) => void;
-  onOpenPairsEditor: (rowId: string, rowKind: 'node' | 'edge', pairsType: 'qSchedule' | 'hSchedule' | 'shapePairs', scheduleNumber?: number) => void;
+  onOpenPairsEditor: (rowId: string, rowKind: 'node' | 'edge', pairsType: 'qSchedule' | 'hSchedule' | 'shapePairs' | 'vSchedule', scheduleNumber?: number) => void;
   onSetUnit: (id: string, kind: 'node' | 'edge', unit: UnitSystem) => void;
 }) {
   const cols = COLS[filter] ?? COLS.all;
@@ -1026,6 +1045,7 @@ function UnifiedTable({
                     changeEdge={changeEdge} changeNode={changeNode}
                     hSchedules={hSchedules}
                     qSchedules={qSchedules}
+                    vSchedules={vSchedules}
                     onOpenPairsEditor={onOpenPairsEditor}
                     onSetUnit={onSetUnit}
                     isHighlighted={isHighlighted}
@@ -1050,6 +1070,7 @@ export function FlexTable({ open, onClose }: FlexTableProps) {
     hSchedules, updateHSchedule, addHSchedule,
     pcharData,
     qSchedules, updateQSchedule,
+    vSchedules, updateVSchedule, addVSchedule,
     applyMaterialToAllConduits, setApplyMaterialToAllConduits,
   } = useNetworkStore();
   const { toast } = useToast();
@@ -1162,7 +1183,7 @@ export function FlexTable({ open, onClose }: FlexTableProps) {
   const handleOpenPairsEditor = useCallback((
     rowId: string,
     rowKind: 'node' | 'edge',
-    pairsType: 'qSchedule' | 'hSchedule' | 'shapePairs',
+    pairsType: 'qSchedule' | 'hSchedule' | 'shapePairs' | 'vSchedule',
     scheduleNumber?: number
   ) => {
     setPairsEditor({ open: true, rowId, rowKind, pairsType, scheduleNumber });
@@ -1180,13 +1201,17 @@ export function FlexTable({ open, onClose }: FlexTableProps) {
       const row = allRows.find(r => r.id === pairsEditor.rowId);
       const pts = (row?.data?.shape as any[]) || [];
       return pts.map((p: any) => ({ time: String(p.e ?? 0), value: String(p.a ?? 0) }));
+    } else if (pairsEditor.pairsType === 'vSchedule') {
+      const schedNum = pairsEditor.scheduleNumber || 1;
+      const pts: { t: number; g: number }[] = vSchedules[schedNum] || [];
+      return pts.map(p => ({ time: String(p.t ?? 0), value: String(p.g ?? 0) }));
     } else {
       const schedNum = pairsEditor.scheduleNumber || 1;
       const sched = hSchedules?.find((s: any) => s.number === schedNum);
       const pts = sched?.points || [];
       return pts.map((p: any) => ({ time: String(p.time ?? 0), value: String(p.head ?? 0) }));
     }
-  }, [pairsEditor, allRows, hSchedules, qSchedules]);
+  }, [pairsEditor, allRows, hSchedules, qSchedules, vSchedules]);
 
   const handleSavePairs = useCallback((rows: PairRow[]) => {
     if (!pairsEditor) return;
@@ -1204,6 +1229,14 @@ export function FlexTable({ open, onClose }: FlexTableProps) {
         a: parseFloat(r.value) || 0,
       }));
       updateNodeData(pairsEditor.rowId, { shape });
+    } else if (pairsEditor.pairsType === 'vSchedule') {
+      const schedNum = pairsEditor.scheduleNumber || 1;
+      const points = rows.map(r => ({
+        t: parseFloat(r.time) || 0,
+        g: parseFloat(r.value) || 0,
+      }));
+      addVSchedule(schedNum);
+      updateVSchedule(schedNum, points);
     } else {
       const schedNum = pairsEditor.scheduleNumber || 1;
       const points = rows.map(r => ({
@@ -1213,7 +1246,7 @@ export function FlexTable({ open, onClose }: FlexTableProps) {
       addHSchedule(schedNum);
       updateHSchedule(schedNum, points);
     }
-  }, [pairsEditor, allRows, updateNodeData, updateQSchedule, updateHSchedule, addHSchedule]);
+  }, [pairsEditor, allRows, updateNodeData, updateQSchedule, updateHSchedule, addHSchedule, updateVSchedule, addVSchedule]);
 
   const visibleChips = FILTER_CHIPS.filter(c => counts[c.key as keyof typeof counts] > 0 || c.key === 'all');
 
@@ -1224,14 +1257,20 @@ export function FlexTable({ open, onClose }: FlexTableProps) {
     ? 'Edit Q Schedule Points'
     : pairsEditor?.pairsType === 'shapePairs'
     ? 'Edit Shape (E, A) Pairs'
+    : pairsEditor?.pairsType === 'vSchedule'
+    ? `Edit VSCHEDULE ${pairsEditor.scheduleNumber ?? 1} — Gate Time Pairs`
     : 'Edit T/H Pairs';
   const editorTimeLabel = pairsEditor?.pairsType === 'shapePairs'
     ? `E (${editorUnit === 'FPS' ? 'ft' : 'm'})`
+    : pairsEditor?.pairsType === 'vSchedule'
+    ? 'Time (T)'
     : 'Time (T)';
   const editorValueLabel = pairsEditor?.pairsType === 'qSchedule'
     ? `Flow (Q) (${editorUnit === 'FPS' ? 'ft³/s' : 'm³/s'})`
     : pairsEditor?.pairsType === 'shapePairs'
     ? `A (${editorUnit === 'FPS' ? 'ft²' : 'm²'})`
+    : pairsEditor?.pairsType === 'vSchedule'
+    ? 'Gate Opening (G %)'
     : `Head (H) (${editorUnit === 'FPS' ? 'ft' : 'm'})`;
 
   return (
@@ -1368,6 +1407,7 @@ export function FlexTable({ open, onClose }: FlexTableProps) {
             <UnifiedTable
               rows={filteredRows} filter={activeFilter} unit={globalUnit} hSchedules={hSchedules ?? []}
               qSchedules={qSchedules ?? {}}
+              vSchedules={vSchedules ?? {}}
               pcharData={pcharData ?? {}}
               onChangeEdge={handleChangeEdge} onChangeNode={handleChangeNode}
               onSelectEdge={handleSelectEdge} onSelectNode={handleSelectNode}
@@ -1377,7 +1417,7 @@ export function FlexTable({ open, onClose }: FlexTableProps) {
             <p className="text-[10px] text-slate-400 flex-none">
               Showing {filteredRows.length} of {allRows.length} elements ·
               Click any white cell to edit · Dimmed cells are read-only for that element type ·
-              Array fields (T/H pairs, shape, Q-schedule) — edit via the Properties Panel ·
+              Turbine V Schedule (T/G pairs) editable inline when mode is TURBGOV or EMERGENCY ·
               SI/FPS toggle applies globally · Per-row Unit column overrides individual elements · Amber border indicates per-element override
             </p>
           </div>
