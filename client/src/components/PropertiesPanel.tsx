@@ -1275,7 +1275,7 @@ export function PropertiesPanel() {
                                 np[idx] = { ...np[idx], g: v };
                                 updateVSchedule(schedNum, np);
                               }} />
-                            <button className="opacity-0 group-hover:opacity-100 text-destructive"
+                            <button className="text-destructive hover:text-red-700"
                               onClick={() => updateVSchedule(schedNum, pts.filter((_, i) => i !== idx))}>
                               <Trash2 className="h-3 w-3" />
                             </button>

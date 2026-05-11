@@ -659,7 +659,7 @@ export function generateInpFile(nodes: WhamoNode[], edges: WhamoEdge[], autoDown
           return;
         }
 
-        const isSpecialElem = req.elementType === 'node' && (element?.data?.type === 'surgeTank' || element?.data?.type === 'pump' || element?.data?.type === 'checkValve' || element?.type === 'surgeTank' || element?.type === 'pump' || element?.type === 'checkValve');
+        const isSpecialElem = req.elementType === 'node' && (element?.data?.type === 'surgeTank' || element?.data?.type === 'pump' || element?.data?.type === 'checkValve' || element?.data?.type === 'turbine' || element?.type === 'surgeTank' || element?.type === 'pump' || element?.type === 'checkValve' || element?.type === 'turbine');
         const useElementRequest = isSpecialElem && req.isElement;
         
         const label = useElementRequest 

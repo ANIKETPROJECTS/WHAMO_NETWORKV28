@@ -93,7 +93,15 @@ export function Toolbar({ onExport, onSave, onLoad }: { onExport: (fileName?: st
     });
   };
 
-  const availableVars = ["Q", "HEAD", "ELEV", "VEL", "PRESS", "PIEZHEAD"];
+  const selectedActualId = selectedElementId.includes(':') ? selectedElementId.split(':')[1] : selectedElementId;
+  const selectedNode = nodes.find(n => n.id === selectedActualId);
+  const selectedEdge = edges.find(e => e.id === selectedActualId);
+  const isTurbineSelected =
+    (selectedNode && (selectedNode.type === 'turbine' || selectedNode.data?.type === 'turbine')) ||
+    (selectedEdge && selectedEdge.data?.type === 'turbine');
+  const availableVars = isTurbineSelected
+    ? ["Q", "HEAD", "SPEED", "POWER"]
+    : ["Q", "HEAD", "ELEV", "VEL", "PRESS", "PIEZHEAD"];
 
   const tools = [
     { label: 'Reservoir', icon: Cylinder, action: () => addNode('reservoir', { x: 100, y: 100 }), color: 'text-blue-600' },
@@ -282,13 +290,23 @@ export function Toolbar({ onExport, onSave, onLoad }: { onExport: (fileName?: st
                       <SelectContent>
                         <SelectItem value="_" disabled>Elements</SelectItem>
                         {nodes
-                          .filter(n => n.data.type === 'surgeTank' || n.data.type === 'pump' || n.data.type === 'checkValve' || n.type === 'surgeTank' || n.type === 'pump' || n.type === 'checkValve')
+                          .filter(n => n.data.type === 'surgeTank' || n.data.type === 'pump' || n.data.type === 'checkValve' || n.data.type === 'turbine' || n.type === 'surgeTank' || n.type === 'pump' || n.type === 'checkValve' || n.type === 'turbine')
                           .filter(n => !outputRequests.some(req => req.elementId === n.id && req.requestType === requestType && req.isElement))
                           .map(n => (
                             <SelectItem key={`element-${n.id}`} value={`element:${n.id}`}>
                               {n.data.label}
                             </SelectItem>
                           ))}
+                        {Array.from(new Map(
+                          edges
+                            .filter(e => e.data?.type === 'turbine')
+                            .filter(e => !outputRequests.some(req => req.elementId === e.id && req.requestType === requestType))
+                            .map(e => [e.data?.label || `Edge ${e.id}`, e])
+                        ).entries()).map(([label, e]) => (
+                          <SelectItem key={`turbine-edge-${e.id}`} value={e.id}>
+                            {label}
+                          </SelectItem>
+                        ))}
                         <SelectItem value="__" disabled>Nodes</SelectItem>
                         {nodes
                           .filter(n => !outputRequests.some(req => req.elementId === n.id && req.requestType === requestType && !req.isElement))
