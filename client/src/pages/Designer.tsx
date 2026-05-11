@@ -989,7 +989,7 @@ function DesignerInner() {
                   proOptions={{ hideAttribution: true }}
                   nodesDraggable={!isLocked && !activeLinkTool}
                   nodesConnectable={!isLocked && !activeLinkTool}
-                  elementsSelectable={true}
+                  elementsSelectable={!activeLinkTool}
                 >
                   <Background color="#94a3b8" gap={20} size={1} className={cn(!showGrid && "opacity-0")} />
                   <Controls className="!bg-white !shadow-xl !border-border">
