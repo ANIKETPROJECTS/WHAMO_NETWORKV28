@@ -106,7 +106,7 @@ function PcharEditor({ pType, activePc, updatePcharData }: {
     setQratioText(arrayToText(activePc.qratio));
     setHratioText(hratioToText(activePc.hratio));
     setTratioText(tratioToText(activePc.tratio));
-  }, [pType]);
+  }, [pType, activePc]);
 
   const savePchar = (updates: Partial<PcharType>) => {
     updatePcharData(pType, { ...activePc, ...updates });
@@ -202,7 +202,7 @@ function TcharEditor({ tType, activeTc, updateTcharData }: {
     setHeadText(arrToText(activeTc.head));
     setQText(matToText(activeTc.qMatrix));
     setEffText(matToText(activeTc.effMatrix));
-  }, [tType]);
+  }, [tType, activeTc]);
 
   const save = (updates: Partial<TcharType>) => updateTcharData(tType, { ...activeTc, ...updates });
 
