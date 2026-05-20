@@ -396,17 +396,25 @@ export function PropertiesPanel() {
       }
       updateNodeData(selectedElementId, processedData);
     } else {
-      updateEdgeData(selectedElementId, processedData);
       const currentLabel = (processedData.label as string) || '';
-      if (currentLabel) {
-        edges
-          .filter(e =>
+      const duplicates = currentLabel
+        ? edges.filter(e =>
             e.id !== selectedElementId &&
             (e.data?.label as string) === currentLabel &&
             (e.data?.type === 'conduit' || e.data?.type === 'dummy')
           )
-          .forEach(e => updateEdgeData(e.id, processedData));
+        : [];
+
+      if (duplicates.length > 0) {
+        toast({
+          variant: "destructive",
+          title: "Duplicate Conduit Number",
+          description: `Conduit label "${currentLabel}" is already assigned to ${duplicates.length === 1 ? 'another conduit' : `${duplicates.length} other conduits`}. Each conduit should have a unique label.`,
+        });
+        return;
       }
+
+      updateEdgeData(selectedElementId, processedData);
     }
 
     setIsDirty(false);
