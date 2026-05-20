@@ -191,6 +191,7 @@ function EditableCell({ value, type = 'text', onChange, readOnly, dimmed, testId
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {
+      e.stopPropagation();
       setEditing(false);
       return;
     }
