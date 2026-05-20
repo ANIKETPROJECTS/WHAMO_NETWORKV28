@@ -16,13 +16,22 @@ interface ColDef {
   readOnly?: boolean;
   isLongList?: boolean; // lists too long for inline formula (>255 chars)
   width?: number;
+  // For columns whose editability depends on another field's value in the same row
+  conditionalLock?: {
+    field: string;      // which data field to inspect
+    lockedWhen: string; // the Excel-display value of that field that makes THIS col locked
+  };
 }
+
+// hSchedule type used for T/H pairs export
+interface HSchedulePoint { time: number; head: number }
+interface HSchedule { number: number; points: HSchedulePoint[] }
 
 // ─── Option lists ─────────────────────────────────────────────────────────────
 
 const UNIT_OPTIONS    = ['SI', 'FPS'];
 const PIPE_TYPE_OPTIONS = ['conduit', 'dummy'];
-const BC_MODE_OPTIONS = ['fixed', 'schedule'];
+const BC_MODE_OPTIONS = ['Fixed Elevation', 'H Schedule'];
 const SURGE_TANK_TYPE_OPTIONS = ['SIMPLE', 'DIFFERENTIAL', 'AIRTANK'];
 const PUMP_STATUS_OPTIONS = ['ACTIVE', 'INACTIVE'];
 const VALVE_STATUS_OPTIONS = ['OPEN', 'CLOSED'];
@@ -125,10 +134,14 @@ export const TAB_COLS: Record<FilterKey, ColDef[]> = {
     { key: 'label',              header: 'Label',          type: 'text', width: 16 },
     { key: 'nodeNumber',         header: 'Node #',         type: 'number', width: 10 },
     { key: 'elevation',          header: 'Elevation',      type: 'number', width: 14 },
-    { key: 'mode',               header: 'BC Mode',        type: 'dropdown', options: BC_MODE_OPTIONS, width: 16 },
-    { key: 'reservoirElevation', header: 'Res. Elevation', type: 'number', width: 16 },
-    { key: 'hScheduleNumber',    header: 'H Sched #',      type: 'number', width: 12 },
-    { key: 'comment',            header: 'Comment',        type: 'text', width: 24 },
+    { key: 'mode',               header: 'BC Mode',        type: 'dropdown', options: BC_MODE_OPTIONS, width: 20 },
+    // ── Conditional columns — access depends on BC Mode ──
+    // Fixed Elevation mode: Res. Elevation editable, H Sched # locked
+    // H Schedule mode:      Res. Elevation locked, H Sched # editable, T/H Pairs shows pairs
+    { key: 'reservoirElevation', header: 'Res. Elevation (Fixed only)', type: 'number', width: 26, conditionalLock: { field: 'mode', lockedWhen: 'H Schedule' } },
+    { key: 'hScheduleNumber',    header: 'H Sched # (Schedule only)',   type: 'number', width: 24, conditionalLock: { field: 'mode', lockedWhen: 'Fixed Elevation' } },
+    { key: '_thPairs',           header: 'T/H Pairs (view only)',       type: 'text',   width: 36, readOnly: true },
+    { key: 'comment',            header: 'Comment',                     type: 'text', width: 24 },
   ],
   junction: [
     ROW_NUM_COL,
@@ -226,6 +239,35 @@ function materialIdByLabel(label: string): number | undefined {
   return m?.id;
 }
 
+// ─── BC Mode display ↔ stored value helpers ───────────────────────────────────
+
+// Stored value → Excel display label
+function modeToDisplay(storedMode: string | undefined): string {
+  if (storedMode === 'schedule') return 'H Schedule';
+  return 'Fixed Elevation'; // default
+}
+
+// Excel display label → stored value (used on import)
+function displayToMode(displayVal: string): string {
+  if (displayVal === 'H Schedule') return 'schedule';
+  if (displayVal === 'Fixed Elevation') return 'fixed';
+  // accept raw stored values too (backward compat)
+  if (displayVal === 'fixed' || displayVal === 'schedule') return displayVal;
+  return 'fixed';
+}
+
+// ─── Conditional lock helper ──────────────────────────────────────────────────
+
+// Returns true if this cell should be grayed out / locked for the given row data
+function isConditionallyLocked(col: ColDef, data: Record<string, any>): boolean {
+  if (!col.conditionalLock) return false;
+  const { field, lockedWhen } = col.conditionalLock;
+  // The data field stores the raw value; convert to display form for comparison
+  const rawVal = data[field];
+  const displayVal = field === 'mode' ? modeToDisplay(rawVal) : String(rawVal ?? '');
+  return displayVal === lockedWhen;
+}
+
 // ─── Cell value extractor ─────────────────────────────────────────────────────
 
 function getRowValue(
@@ -234,6 +276,7 @@ function getRowValue(
   subType: string,
   globalUnit: string,
   rowIdx: number,
+  hSchedules?: HSchedule[],
 ): string | number {
   if (col.key === '_rowNum') return rowIdx + 1;
   if (col.key === '_type') {
@@ -247,6 +290,26 @@ function getRowValue(
   }
   if (col.key === '_unit') return (data.unit as string) || globalUnit;
   if (col.key === '_materialLabel') return materialLabelById(data.materialId);
+
+  // BC Mode: translate stored 'fixed'/'schedule' → display label for Excel dropdown
+  if (col.key === 'mode') return modeToDisplay(data.mode);
+
+  // T/H Pairs summary (reservoir H Schedule mode)
+  if (col.key === '_thPairs') {
+    if (modeToDisplay(data.mode) !== 'H Schedule') return 'NA — Fixed Elevation mode';
+    const schedNum = data.hScheduleNumber ?? 1;
+    const sched = hSchedules?.find(s => s.number === schedNum);
+    if (!sched || sched.points.length === 0) return '0 pairs — add in app';
+    const pts = sched.points.slice(0, 4)
+      .map(p => `T=${p.time} H=${p.head}`)
+      .join('; ');
+    const extra = sched.points.length > 4 ? ` … +${sched.points.length - 4} more` : '';
+    return `${sched.points.length} pts: ${pts}${extra}`;
+  }
+
+  // Conditionally locked cells show NA
+  if (isConditionallyLocked(col, data)) return 'NA';
+
   const val = data[col.key];
   if (val === undefined || val === null) return '';
   if (typeof val === 'boolean') return val ? 'true' : 'false';
@@ -299,6 +362,7 @@ export async function exportTabToExcel(
   rows: ExportRow[],
   globalUnit: string,
   tabLabel: string,
+  hSchedules?: HSchedule[],
 ): Promise<void> {
   const cols = TAB_COLS[filter];
   if (!cols) throw new Error(`Unknown filter: ${filter}`);
@@ -367,7 +431,7 @@ export async function exportTabToExcel(
   rows.forEach((row, rowIdx) => {
     const isEven = rowIdx % 2 === 0;
     const values: (string | number)[] = cols.map(col =>
-      getRowValue(col, row.data, row.subType, globalUnit, rowIdx)
+      getRowValue(col, row.data, row.subType, globalUnit, rowIdx, hSchedules)
     );
     const excelRow = ws.addRow(values);
 
@@ -377,12 +441,19 @@ export async function exportTabToExcel(
 
       const isReadOnly = !!colDef.readOnly;
       const isRowNum = colDef.key === '_rowNum';
-      const isDropdown = colDef.type === 'dropdown' && !isReadOnly;
-      const isNumeric = colDef.type === 'number' && !isReadOnly;
+      // A cell is "conditionally locked" when it's not accessible for this row's current mode
+      const isCondLocked = isConditionallyLocked(colDef, row.data);
+      // Effective locked = explicitly read-only OR conditionally locked by mode
+      const isEffectiveLocked = isReadOnly || isCondLocked;
+      const isDropdown = colDef.type === 'dropdown' && !isEffectiveLocked;
+      const isNumeric = colDef.type === 'number' && !isEffectiveLocked;
 
       // Fill colour
       if (isRowNum) {
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? 'FFE8F0FE' : 'FFD2E3FC' } };
+      } else if (isCondLocked) {
+        // Conditionally locked: distinct amber-gray tint to mirror the "dimmed" look in the app
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? 'FFFFF8EE' : 'FFFFF3E0' } };
       } else if (isReadOnly) {
         cell.fill = isEven ? READONLY_FILL_EVEN : READONLY_FILL_ODD;
       } else if (isDropdown) {
@@ -394,8 +465,9 @@ export async function exportTabToExcel(
       // Font
       cell.font = {
         size: 10,
-        color: { argb: isReadOnly ? 'FF888888' : 'FF1A1A2E' },
+        color: { argb: isEffectiveLocked && !isRowNum ? 'FFAAAAAA' : 'FF1A1A2E' },
         bold: isRowNum,
+        italic: isCondLocked,
       };
 
       // Alignment
@@ -408,7 +480,12 @@ export async function exportTabToExcel(
         ? { ...CELL_BORDER, right: { style: 'medium', color: { argb: 'FF1A73E8' } } }
         : CELL_BORDER;
 
-      // ── Data validation ──
+      // ── Data validation — only on cells that are actually editable ──
+      if (isCondLocked || isReadOnly) {
+        // No validation on locked cells — they show "NA" and shouldn't be edited
+        if (!isRowNum) cell.protection = { locked: true };
+        return;
+      }
 
       // Dropdown: long list → reference sheet range; short list → inline formula
       if (isDropdown && colDef.options) {
@@ -445,11 +522,6 @@ export async function exportTabToExcel(
           errorTitle: 'Numbers Only',
           showErrorMessage: true,
         };
-      }
-
-      // Protect read-only cells with a light lock appearance
-      if (isReadOnly && !isRowNum) {
-        cell.protection = { locked: true };
       }
     });
 
@@ -585,8 +657,17 @@ export async function importTabFromExcel(
       const strVal = String(rawVal).trim();
       if (!strVal) return;
 
+      // Skip cells that contain the "NA" sentinel — they are conditionally locked
+      if (strVal === 'NA' || strVal.startsWith('NA —') || strVal.startsWith('NA -')) return;
+
       if (col.key === '_unit') {
         if (strVal === 'SI' || strVal === 'FPS') update.unit = strVal;
+        return;
+      }
+
+      // BC Mode: translate Excel display label back to stored value
+      if (col.key === 'mode') {
+        update.mode = displayToMode(strVal);
         return;
       }
 

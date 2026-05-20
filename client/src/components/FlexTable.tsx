@@ -1360,7 +1360,7 @@ export function FlexTable({ open, onClose }: FlexTableProps) {
       const exportRows: ExportRow[] = filteredRows.map(r => ({
         id: r.id, kind: r.kind, subType: r.subType, data: r.data,
       }));
-      await exportTabToExcel(excelFilter, exportRows, globalUnit, tabLabel);
+      await exportTabToExcel(excelFilter, exportRows, globalUnit, tabLabel, hSchedules ?? []);
       toast({ title: 'Export complete', description: `${tabLabel} tab exported as Excel.` });
     } catch (err: any) {
       toast({ title: 'Export failed', description: err.message, variant: 'destructive' });
