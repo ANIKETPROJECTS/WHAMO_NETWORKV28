@@ -528,6 +528,77 @@ export async function exportTabToExcel(
     excelRow.height = 18;
   });
 
+  // ── Conditional Formatting: dynamic per-mode locking for reservoir ──
+  // This makes cells visually respond LIVE when the user changes BC Mode in Excel.
+  if (filter === 'reservoir' && rows.length > 0) {
+    const maxDataRow = rows.length + 2; // 1 header + 1 hint + N data rows
+
+    // Helper: 0-based column index → Excel letter (A, B, … Z, AA, AB…)
+    const excelColLetter = (idx: number): string => {
+      const n = idx + 1;
+      if (n <= 26) return String.fromCharCode(64 + n);
+      return String.fromCharCode(64 + Math.floor((n - 1) / 26)) +
+             String.fromCharCode(64 + ((n - 1) % 26) + 1);
+    };
+
+    const modeIdx    = cols.findIndex(c => c.key === 'mode');
+    const resElevIdx = cols.findIndex(c => c.key === 'reservoirElevation');
+    const hSchedIdx  = cols.findIndex(c => c.key === 'hScheduleNumber');
+    const thPairsIdx = cols.findIndex(c => c.key === '_thPairs');
+
+    if (modeIdx >= 0) {
+      const modeCol = excelColLetter(modeIdx);
+      const cfDataRange = (colIdx: number) =>
+        `${excelColLetter(colIdx)}3:${excelColLetter(colIdx)}${maxDataRow}`;
+
+      const lockedStyle = {
+        fill: { type: 'pattern' as const, pattern: 'solid' as const,
+                fgColor: { argb: 'FFFFF3E0' } },
+        font: { color: { argb: 'FFAAAAAA' }, italic: true, size: 10 },
+      };
+      const activeStyle = {
+        fill: { type: 'pattern' as const, pattern: 'solid' as const,
+                fgColor: { argb: 'FFFFFFFF' } },
+        font: { color: { argb: 'FF1A1A2E' }, italic: false, size: 10 },
+      };
+
+      // Res. Elevation: locked when BC Mode = "H Schedule"
+      if (resElevIdx >= 0) {
+        ws.addConditionalFormatting({
+          ref: cfDataRange(resElevIdx),
+          rules: [
+            { type: 'expression', priority: 1,
+              formulae: [`$${modeCol}3="H Schedule"`], style: lockedStyle },
+            { type: 'expression', priority: 2,
+              formulae: [`$${modeCol}3="Fixed Elevation"`], style: activeStyle },
+          ],
+        });
+      }
+      // H Sched #: locked when BC Mode = "Fixed Elevation"
+      if (hSchedIdx >= 0) {
+        ws.addConditionalFormatting({
+          ref: cfDataRange(hSchedIdx),
+          rules: [
+            { type: 'expression', priority: 1,
+              formulae: [`$${modeCol}3="Fixed Elevation"`], style: lockedStyle },
+            { type: 'expression', priority: 2,
+              formulae: [`$${modeCol}3="H Schedule"`], style: activeStyle },
+          ],
+        });
+      }
+      // T/H Pairs: locked when BC Mode = "Fixed Elevation"
+      if (thPairsIdx >= 0) {
+        ws.addConditionalFormatting({
+          ref: cfDataRange(thPairsIdx),
+          rules: [
+            { type: 'expression', priority: 1,
+              formulae: [`$${modeCol}3="Fixed Elevation"`], style: lockedStyle },
+          ],
+        });
+      }
+    }
+  }
+
   // ── Legend sheet ──
   const legendWs = wb.addWorksheet('Legend (do not edit)');
   legendWs.columns = [
@@ -703,6 +774,19 @@ export async function importTabFromExcel(
         return;
       }
     });
+
+    // ── Reservoir conditional field cleanup ──
+    // Determine the effective mode (newly imported or existing in app),
+    // then remove fields that belong to the inactive mode so we never
+    // accidentally overwrite a value that should stay untouched.
+    if (existingRow.subType === 'reservoir') {
+      const effectiveMode = update.mode ?? existingRow.data.mode ?? 'fixed';
+      if (effectiveMode === 'schedule') {
+        delete update.reservoirElevation; // only used in Fixed Elevation mode
+      } else {
+        delete update.hScheduleNumber;    // only used in H Schedule mode
+      }
+    }
 
     updates.push({ id: existingRow.id, kind: existingRow.kind, data: update });
   });
