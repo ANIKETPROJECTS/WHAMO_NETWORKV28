@@ -8,14 +8,38 @@ import {
 import { TooltipWrapper, DataList } from './TooltipWrapper';
 import { useNetworkStore } from '@/lib/store';
 
-function ElementCircle({ color, label }: { color: string; label?: string }) {
+function PumpIcon({ color, label }: { color: string; label?: string }) {
   return (
     <div style={{
       width: 36, height: 36, borderRadius: '50%',
-      background: color,
+      border: `2px solid ${color}`, background: 'white',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
-      <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', lineHeight: 1 }}>{label}</span>
+      <span style={{ fontSize: 12, fontWeight: 700, color: '#000', lineHeight: 1 }}>{label}</span>
+    </div>
+  );
+}
+
+function CheckValveIcon({ color, label }: { color: string; label?: string }) {
+  return (
+    <div style={{
+      width: 36, height: 36, borderRadius: '50%',
+      border: `2px solid ${color}`, background: 'white',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>
+      <span style={{ fontSize: 12, fontWeight: 700, color: '#000', lineHeight: 1 }}>{label}</span>
+    </div>
+  );
+}
+
+function TurbineIcon({ color, label }: { color: string; label?: string }) {
+  return (
+    <div style={{
+      width: 36, height: 36, borderRadius: '50%',
+      border: `2px solid ${color}`, background: 'white',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>
+      <span style={{ fontSize: 12, fontWeight: 700, color: '#000', lineHeight: 1 }}>{label}</span>
     </div>
   );
 }
@@ -31,6 +55,7 @@ export const ConnectionEdge = memo(({
   style = {},
   markerEnd,
   data,
+  type,
 }: EdgeProps) => {
   const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
@@ -49,15 +74,13 @@ export const ConnectionEdge = memo(({
   const isCheckValve = edgeType === 'checkValve';
   const isTurbine = edgeType === 'turbine';
   const isElementEdge = isPump || isCheckValve || isTurbine;
+
   const isDummy = edgeType === 'dummy';
-
-  // Match each edge type to its distinct dark element color
-  const strokeColor = isPump ? '#6d28d9'       // Deep Purple
-    : isCheckValve ? '#047857'                  // Dark Emerald Green
-    : isTurbine ? '#0e7490'                     // Dark Cyan
-    : isDummy ? '#94a3b8'                       // Slate (neutral)
-    : '#1d4ed8';                                // Royal Blue (conduit)
-
+  const strokeColor = isPump ? '#f97316'
+    : isCheckValve ? '#8b5cf6'
+    : isTurbine ? '#14b8a6'
+    : isDummy ? '#94a3b8'
+    : '#3b82f6';
   const strokeDasharray = isDummy ? '8 8' : undefined;
 
   const tooltipTitle = isPump ? 'Pump Properties'
@@ -68,15 +91,15 @@ export const ConnectionEdge = memo(({
 
   return (
     <>
-      <BaseEdge
-        path={edgePath}
-        markerEnd={markerEnd}
+      <BaseEdge 
+        path={edgePath} 
+        markerEnd={markerEnd} 
         style={{
           ...style,
-          strokeWidth: 2.5,
+          strokeWidth: isElementEdge ? 2.5 : isDummy ? 2 : 2.5,
           stroke: strokeColor,
           strokeDasharray,
-        }}
+        }} 
       />
       <EdgeLabelRenderer>
         <div
@@ -87,12 +110,14 @@ export const ConnectionEdge = memo(({
           }}
           className="nodrag nopan"
         >
-          <TooltipWrapper
+          <TooltipWrapper 
             content={<DataList data={displayData} title={tooltipTitle} />}
           >
             {isElementEdge ? (
               <div className="flex flex-col items-center gap-0.5 cursor-help">
-                <ElementCircle color={strokeColor} label={(displayData?.label as string) || id} />
+                {isPump && <PumpIcon color={strokeColor} label={(displayData?.label as string) || id} />}
+                {isCheckValve && <CheckValveIcon color={strokeColor} label={(displayData?.label as string) || id} />}
+                {isTurbine && <TurbineIcon color={strokeColor} label={(displayData?.label as string) || id} />}
               </div>
             ) : (
               <div className="bg-white px-2 py-0.5 rounded-full border border-black text-[10px] font-semibold text-black cursor-help hover:bg-slate-50 transition-colors">
