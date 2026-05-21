@@ -8,8 +8,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { X, Filter, Check, Plus, Trash2, Download, Upload } from 'lucide-react';
-import { exportTabToExcel, importTabFromExcel, TAB_COLS, type FilterKey as ExcelFilterKey, type ExportRow } from '@/lib/excel-io';
+import { X, Filter, Check, Plus, Trash2, Download } from 'lucide-react';
+import { exportTabToExcel, TAB_COLS, type FilterKey as ExcelFilterKey, type ExportRow } from '@/lib/excel-io';
 
 interface FlexTableProps {
   open: boolean;
@@ -1157,8 +1157,6 @@ export function FlexTable({ open, onClose }: FlexTableProps) {
   const [activeFilter, setActiveFilter] = useState<FilterKey>('all');
   const [pairsEditor, setPairsEditor] = useState<PairsEditorState | null>(null);
   const [isExporting, setIsExporting] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
-  const importInputRef = useRef<HTMLInputElement>(null);
 
   const allRows = useMemo<UnifiedRow[]>(() => {
     const nodeRows = new Map(nodes.map(n => [n.id, {
@@ -1373,40 +1371,6 @@ export function FlexTable({ open, onClose }: FlexTableProps) {
     }
   }, [activeFilter, filteredRows, globalUnit, tabLabel, isExporting, toast]);
 
-  const handleImportFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!importInputRef.current) return;
-    importInputRef.current.value = '';
-    if (!file) return;
-    const excelFilter = activeFilter as ExcelFilterKey;
-    if (!TAB_COLS[excelFilter]) {
-      toast({ title: 'Import not available', description: 'No column definition for this filter.', variant: 'destructive' });
-      return;
-    }
-    setIsImporting(true);
-    try {
-      const exportRows: ExportRow[] = filteredRows.map(r => ({
-        id: r.id, kind: r.kind, subType: r.subType, data: r.data,
-      }));
-      const { updates, hScheduleUpdates, matched, skipped } = await importTabFromExcel(excelFilter, exportRows, globalUnit, file);
-      updates.forEach(({ id, kind, data }) => {
-        if (kind === 'edge') updateEdgeData(id, data);
-        else updateNodeData(id, data);
-      });
-      hScheduleUpdates?.forEach(({ scheduleNumber, points }) => {
-        addHSchedule(scheduleNumber);
-        updateHSchedule(scheduleNumber, points);
-      });
-      toast({
-        title: 'Import complete',
-        description: `${matched} row${matched !== 1 ? 's' : ''} updated${hScheduleUpdates?.length ? `, ${hScheduleUpdates.length} T/H schedule(s) updated` : ''}${skipped > 0 ? `, ${skipped} skipped (label not found)` : ''}.`,
-      });
-    } catch (err: any) {
-      toast({ title: 'Import failed', description: err.message, variant: 'destructive' });
-    } finally {
-      setIsImporting(false);
-    }
-  }, [activeFilter, filteredRows, globalUnit, updateEdgeData, updateNodeData, toast]);
 
   // Build editor title/labels — use element's own unit if set
   const editorRow = pairsEditor ? allRows.find(r => r.id === pairsEditor.rowId) : null;
@@ -1559,28 +1523,8 @@ export function FlexTable({ open, onClose }: FlexTableProps) {
               </button>
             )}
 
-            {/* ── Import / Export buttons ── */}
+            {/* ── Export button ── */}
             <div className="flex items-center gap-1.5 ml-auto shrink-0">
-              <input
-                ref={importInputRef}
-                type="file"
-                accept=".xlsx"
-                className="hidden"
-                data-testid="excel-import-input"
-                onChange={handleImportFile}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-[11px] gap-1.5 border-slate-300 text-slate-700 hover:bg-slate-100 hover:text-slate-900"
-                onClick={() => importInputRef.current?.click()}
-                disabled={isImporting || filteredRows.length === 0}
-                data-testid="btn-excel-import"
-                title={`Import ${tabLabel} data from Excel (rows matched by Label)`}
-              >
-                <Upload className="h-3.5 w-3.5" />
-                {isImporting ? 'Importing…' : 'Import Excel'}
-              </Button>
               <Button
                 variant="outline"
                 size="sm"
