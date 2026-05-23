@@ -92,15 +92,15 @@ function TitleBarBtn({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "flex flex-row items-center gap-1 px-2 py-1 rounded transition-colors select-none",
+        "flex flex-row items-center gap-1.5 px-2.5 py-1.5 rounded transition-colors select-none",
         disabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:bg-slate-100 active:bg-slate-200",
       )}
     >
       {imgSrc
-        ? <img src={imgSrc} className="w-[18px] h-[18px] object-contain flex-shrink-0" alt={label} />
+        ? <img src={imgSrc} className="w-[22px] h-[22px] object-contain flex-shrink-0" alt={label} />
         : <span className="flex-shrink-0 flex items-center">{icon}</span>
       }
-      <span className="text-[10px] font-medium text-black whitespace-nowrap" style={{ fontFamily: 'Poppins, sans-serif' }}>{label}</span>
+      <span className="text-[12px] font-medium text-black whitespace-nowrap" style={{ fontFamily: 'Poppins, sans-serif' }}>{label}</span>
     </button>
   );
 }
@@ -473,46 +473,48 @@ export function Header({
     <div className="flex flex-col border-b bg-white shadow-sm">
 
       {/* ── TITLE BAR ── */}
-      <div className="flex items-center gap-1 px-3 py-1 border-b border-slate-100 bg-white">
+      <div className="relative flex items-center px-3 py-1.5 border-b border-slate-100 bg-white">
         {/* LEFT: File ops + Undo/Redo */}
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-0.5 z-10">
           <TitleBarBtn imgSrc={addFileIcon} label="New" onClick={() => { clearNetwork(); }} />
           <TitleBarBtn imgSrc={openFolderIcon} label="Open" onClick={onLoad} />
           <TitleBarBtn imgSrc={floppyDiskIcon} label="Save" onClick={onSave} />
           <TitleBarBtn imgSrc={disketteIcon} label="Save As" onClick={onSaveAs} />
-          <div className="w-px bg-slate-200 mx-1 h-5 flex-shrink-0" />
-          <TitleBarBtn icon={<Undo2 className="w-[16px] h-[16px]" />} label="Undo" onClick={undo} disabled={history.past.length === 0} />
-          <TitleBarBtn icon={<Redo2 className="w-[16px] h-[16px]" />} label="Redo" onClick={redo} disabled={history.future.length === 0} />
+          <div className="w-px bg-slate-200 mx-1 h-6 flex-shrink-0" />
+          <TitleBarBtn icon={<Undo2 className="w-[22px] h-[22px]" />} label="Undo" onClick={undo} disabled={history.past.length === 0} />
+          <TitleBarBtn icon={<Redo2 className="w-[22px] h-[22px]" />} label="Redo" onClick={redo} disabled={history.future.length === 0} />
         </div>
 
-        {/* CENTER: folder icon + project name */}
-        <div className="flex-1 flex justify-center items-center gap-2">
-          <img src={folderIcon} alt="Folder" className="w-6 h-6 object-contain flex-shrink-0" />
-          <input
-            className={`text-sm font-medium text-black bg-transparent border focus:ring-1 focus:ring-blue-500 px-1.5 py-0.5 rounded outline-none hover:bg-slate-50 min-w-[180px] ${projectNameError ? 'border-red-400 ring-1 ring-red-400' : 'border-transparent'}`}
-            value={projectName}
-            onChange={(e) => setProjectName(e.target.value)}
-            placeholder="Enter project name..."
-          />
-          {projectNameError && (
-            <div className="flex items-center gap-1 text-[10px] text-yellow-600 font-medium bg-yellow-50 px-2 py-0.5 rounded border border-yellow-200">
-              <AlertCircle className="w-3 h-3 text-red-500" />
-              {projectNameError}
-            </div>
-          )}
+        {/* CENTER: absolutely centered folder icon + project name */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="flex items-center gap-2 pointer-events-auto">
+            <img src={folderIcon} alt="Folder" className="w-6 h-6 object-contain flex-shrink-0" />
+            <input
+              className={`text-sm font-medium text-black bg-transparent border focus:ring-1 focus:ring-blue-500 px-1.5 py-0.5 rounded outline-none hover:bg-slate-50 min-w-[180px] ${projectNameError ? 'border-red-400 ring-1 ring-red-400' : 'border-transparent'}`}
+              value={projectName}
+              onChange={(e) => setProjectName(e.target.value)}
+              placeholder="Enter project name..."
+            />
+            {projectNameError && (
+              <div className="flex items-center gap-1 text-[10px] text-yellow-600 font-medium bg-yellow-50 px-2 py-0.5 rounded border border-yellow-200">
+                <AlertCircle className="w-3 h-3 text-red-500" />
+                {projectNameError}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* RIGHT: Units pill */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] text-slate-400 font-medium">Units:</span>
-          <div className="flex items-center rounded-full border border-slate-300 bg-white overflow-hidden shadow-sm">
+        <div className="ml-auto flex items-center gap-2 z-10">
+          <span className="text-[12px] text-black font-semibold">Units:</span>
+          <div className="flex items-center rounded-full border-2 border-slate-300 bg-white overflow-hidden shadow-sm">
             <button
               onClick={() => setGlobalUnit('SI')}
-              className={`text-[11px] font-semibold px-3 py-0.5 transition-colors ${globalUnit === 'SI' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+              className={`text-[13px] font-bold px-4 py-1 transition-colors ${globalUnit === 'SI' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
             >SI</button>
             <button
               onClick={() => setGlobalUnit('FPS')}
-              className={`text-[11px] font-semibold px-3 py-0.5 transition-colors ${globalUnit === 'FPS' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+              className={`text-[13px] font-bold px-4 py-1 transition-colors ${globalUnit === 'FPS' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
             >FPS</button>
           </div>
         </div>
@@ -587,13 +589,13 @@ export function Header({
         <RibbonGroup label="Generate" flex={2}>
           <InlineRibbonBtn
             imgSrc={inputIcon}
-            label="Generate .INP"
+            label=".INP"
             onClick={handleExport}
             data-testid="ribbon-btn-generate-inp"
           />
           <InlineRibbonBtn
             imgSrc={outputIcon}
-            label={isGeneratingOut ? "Processing..." : "Generate .OUT"}
+            label={isGeneratingOut ? "Processing..." : ".OUT"}
             onClick={handleOutGenerate}
             disabled={isGeneratingOut}
             data-testid="ribbon-btn-generate-out"
@@ -605,7 +607,6 @@ export function Header({
             imgSrc={showHoverData ? eyeOpenIcon : eyeHiddenIcon}
             label={showHoverData ? "Hide Labels" : "Show Labels"}
             onClick={() => setShowHoverData(!showHoverData)}
-            active={showHoverData}
             data-testid="ribbon-btn-toggle-labels"
           />
           <InlineRibbonBtn
