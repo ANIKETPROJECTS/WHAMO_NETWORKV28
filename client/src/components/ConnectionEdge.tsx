@@ -16,7 +16,7 @@ const EDGE_COLOR = '#000000';
 const CIRCLE_SIZE = 72;
 const BLACK_MARKER = { type: MarkerType.ArrowClosed, color: EDGE_COLOR };
 
-function ElementCircle({ icon, alt }: { icon: string; alt: string }) {
+function ElementCircle({ icon, alt, label }: { icon: string; alt: string; label: string }) {
   return (
     <div style={{
       width: CIRCLE_SIZE,
@@ -25,10 +25,15 @@ function ElementCircle({ icon, alt }: { icon: string; alt: string }) {
       border: `3px solid ${EDGE_COLOR}`,
       background: 'white',
       display: 'flex',
+      flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
+      gap: 3,
     }}>
-      <img src={icon} style={{ width: 36, height: 36, objectFit: 'contain', pointerEvents: 'none' }} alt={alt} />
+      <img src={icon} style={{ width: 34, height: 34, objectFit: 'contain', pointerEvents: 'none' }} alt={alt} />
+      <span style={{ fontSize: 11, fontWeight: 700, color: '#000', lineHeight: 1, whiteSpace: 'nowrap', userSelect: 'none' }}>
+        {label}
+      </span>
     </div>
   );
 }
@@ -60,9 +65,6 @@ export const ConnectionEdge = memo(({
   const isElementEdge = isPump || isCheckValve || isTurbine;
   const isDummy = edgeType === 'dummy';
 
-  // Detect orientation for label placement
-  const isVertical = Math.abs(targetY - sourceY) > Math.abs(targetX - sourceX);
-
   const tooltipTitle = isPump ? 'Pump Properties'
     : isCheckValve ? 'Check Valve Properties'
     : isTurbine ? 'Turbine Properties'
@@ -70,21 +72,6 @@ export const ConnectionEdge = memo(({
     : 'Conduit Properties';
 
   const edgeLabel = (displayData?.label as string) || id;
-
-  // Label position: right of circle for vertical edges, below for horizontal
-  const labelStyle: React.CSSProperties = isVertical ? {
-    position: 'absolute',
-    left: '100%',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    marginLeft: 7,
-  } : {
-    position: 'absolute',
-    top: '100%',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    marginTop: 4,
-  };
 
   return (
     <>
@@ -109,24 +96,10 @@ export const ConnectionEdge = memo(({
         >
           <TooltipWrapper content={<DataList data={displayData} title={tooltipTitle} />}>
             {isElementEdge ? (
-              /* Container is exactly CIRCLE_SIZE so the circle stays centered at labelX,labelY.
-                 The text label is absolutely positioned outside this box. */
-              <div style={{ position: 'relative', width: CIRCLE_SIZE, height: CIRCLE_SIZE, cursor: 'help' }}>
-                {isPump && <ElementCircle icon={waterPumpIcon} alt="Pump" />}
-                {isCheckValve && <ElementCircle icon={pipeIcon} alt="Check Valve" />}
-                {isTurbine && <ElementCircle icon={turbineImgIcon} alt="Turbine" />}
-                <span style={{
-                  ...labelStyle,
-                  fontSize: 13,
-                  fontWeight: 700,
-                  color: '#000',
-                  lineHeight: 1,
-                  whiteSpace: 'nowrap',
-                  userSelect: 'none',
-                  pointerEvents: 'none',
-                }}>
-                  {edgeLabel}
-                </span>
+              <div style={{ cursor: 'help' }}>
+                {isPump && <ElementCircle icon={waterPumpIcon} alt="Pump" label={edgeLabel} />}
+                {isCheckValve && <ElementCircle icon={pipeIcon} alt="Check Valve" label={edgeLabel} />}
+                {isTurbine && <ElementCircle icon={turbineImgIcon} alt="Turbine" label={edgeLabel} />}
               </div>
             ) : (
               <div className="bg-white px-2 py-0.5 rounded-full border border-black text-[11px] font-semibold text-black cursor-help hover:bg-slate-50 transition-colors">
