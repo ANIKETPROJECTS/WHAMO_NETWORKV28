@@ -84,6 +84,36 @@ function RibbonBtn({
   );
 }
 
+function SmallRibbonBtn({
+  icon, label, onClick, disabled, active, highlight,
+  ...rest
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick?: () => void;
+  disabled?: boolean;
+  active?: boolean;
+  highlight?: boolean;
+  [key: string]: any;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      {...rest}
+      className={cn(
+        "flex flex-col items-center justify-center gap-0 px-1.5 py-0.5 rounded min-w-[40px] transition-colors select-none",
+        disabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:bg-blue-50 active:bg-blue-100",
+        active ? "bg-blue-100 ring-1 ring-blue-300" : "",
+        highlight && !disabled ? "hover:bg-blue-100" : "",
+      )}
+    >
+      <span className="flex items-center justify-center">{icon}</span>
+      <span className="text-[8px] font-medium text-slate-600 leading-tight text-center max-w-[52px]">{label}</span>
+    </button>
+  );
+}
+
 function RibbonGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-stretch">
@@ -375,14 +405,16 @@ export function Header({
         </div>
         <div className="ml-auto flex items-center gap-1.5">
           <span className="text-[10px] text-slate-400 font-medium">Units:</span>
-          <button
-            onClick={() => setGlobalUnit('SI')}
-            className={`text-[11px] font-semibold px-2.5 py-0.5 rounded border transition-colors ${globalUnit === 'SI' ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}
-          >SI</button>
-          <button
-            onClick={() => setGlobalUnit('FPS')}
-            className={`text-[11px] font-semibold px-2.5 py-0.5 rounded border transition-colors ${globalUnit === 'FPS' ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}
-          >FPS</button>
+          <div className="flex items-center rounded-full border border-slate-300 bg-white overflow-hidden shadow-sm">
+            <button
+              onClick={() => setGlobalUnit('SI')}
+              className={`text-[11px] font-semibold px-3 py-0.5 transition-colors ${globalUnit === 'SI' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+            >SI</button>
+            <button
+              onClick={() => setGlobalUnit('FPS')}
+              className={`text-[11px] font-semibold px-3 py-0.5 transition-colors ${globalUnit === 'FPS' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+            >FPS</button>
+          </div>
         </div>
       </div>
 
@@ -390,10 +422,12 @@ export function Header({
       <div className="flex items-stretch bg-[#f3f5f9] overflow-x-auto border-b border-slate-200">
 
         <RibbonGroup label="File">
-          <RibbonBtn icon={<FilePlus className="w-[18px] h-[18px]" />} label="New" onClick={() => { clearNetwork(); }} />
-          <RibbonBtn icon={<FolderOpen className="w-[18px] h-[18px]" />} label="Open" onClick={onLoad} />
-          <RibbonBtn icon={<Save className="w-[18px] h-[18px]" />} label="Save" onClick={onSave} />
-          <RibbonBtn icon={<Save className="w-[18px] h-[18px]" />} label="Save As" onClick={onSaveAs} />
+          <div className="grid grid-cols-2 gap-0.5">
+            <SmallRibbonBtn icon={<FilePlus className="w-[14px] h-[14px]" />} label="New" onClick={() => { clearNetwork(); }} />
+            <SmallRibbonBtn icon={<FolderOpen className="w-[14px] h-[14px]" />} label="Open" onClick={onLoad} />
+            <SmallRibbonBtn icon={<Save className="w-[14px] h-[14px]" />} label="Save" onClick={onSave} />
+            <SmallRibbonBtn icon={<Save className="w-[14px] h-[14px]" />} label="Save As" onClick={onSaveAs} />
+          </div>
         </RibbonGroup>
 
         <RibbonGroup label="Edit">
@@ -402,79 +436,57 @@ export function Header({
         </RibbonGroup>
 
         <RibbonGroup label="Insert">
-          <RibbonBtn icon={<Cylinder className="w-[18px] h-[18px] text-blue-600" />} label="Reservoir" onClick={() => addNode("reservoir", { x: 100, y: 100 })} />
-          <RibbonBtn icon={<Circle className="w-[18px] h-[18px] text-blue-500" />} label="Node" onClick={() => addNode("node", { x: 150, y: 150 })} />
-          <RibbonBtn icon={<GitCommitHorizontal className="w-[18px] h-[18px] text-red-500" />} label="Junction" onClick={() => addNode("junction", { x: 200, y: 150 })} />
-          <RibbonBtn icon={<PlusCircle className="w-[18px] h-[18px] text-orange-500" />} label="Surge Tank" onClick={() => addNode("surgeTank", { x: 250, y: 100 })} />
-          <RibbonBtn icon={<ArrowRightCircle className="w-[18px] h-[18px] text-green-600" />} label="Flow BC" onClick={() => addNode("flowBoundary", { x: 50, y: 150 })} />
-          <RibbonBtn
-            icon={<PlayCircle className={`w-[18px] h-[18px] ${activeLinkTool === 'pump' ? 'text-orange-700' : 'text-orange-500'}`} />}
-            label="Pump"
-            onClick={() => onSetLinkTool?.(activeLinkTool === 'pump' ? null : 'pump')}
-            active={activeLinkTool === 'pump'}
-            data-testid="ribbon-btn-pump"
-          />
-          <RibbonBtn
-            icon={<ShieldCheck className={`w-[18px] h-[18px] ${activeLinkTool === 'checkValve' ? 'text-violet-800' : 'text-violet-600'}`} />}
-            label="Check Valve"
-            onClick={() => onSetLinkTool?.(activeLinkTool === 'checkValve' ? null : 'checkValve')}
-            active={activeLinkTool === 'checkValve'}
-            data-testid="ribbon-btn-checkvalve"
-          />
-          <RibbonBtn
-            icon={<Settings2 className={`w-[18px] h-[18px] ${activeLinkTool === 'turbine' ? 'text-teal-800' : 'text-teal-600'}`} />}
-            label="Turbine"
-            onClick={() => onSetLinkTool?.(activeLinkTool === 'turbine' ? null : 'turbine')}
-            active={activeLinkTool === 'turbine'}
-            data-testid="ribbon-btn-turbine"
-          />
-        </RibbonGroup>
-
-        <RibbonGroup label="View">
-          <RibbonBtn
-            icon={<Layout className="w-[18px] h-[18px]" />}
-            label="Grid"
-            onClick={() => window.dispatchEvent(new CustomEvent('toggle-grid'))}
-          />
-          <RibbonBtn
-            icon={<Maximize2 className="w-[18px] h-[18px]" />}
-            label={isFullscreen ? "Exit FS" : "Full Screen"}
-            onClick={() => {
-              if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(() => {});
-              } else {
-                document.exitFullscreen();
-              }
-            }}
-          />
-          <RibbonBtn
-            icon={showHoverData ? <Eye className="w-[18px] h-[18px]" /> : <EyeOff className="w-[18px] h-[18px]" />}
-            label={showHoverData ? "Hide Labels" : "Show Labels"}
-            onClick={() => setShowHoverData(!showHoverData)}
-            active={showHoverData}
-            data-testid="ribbon-btn-toggle-labels"
-          />
+          <div className="grid grid-cols-4 gap-0.5">
+            <SmallRibbonBtn icon={<Cylinder className="w-[14px] h-[14px] text-blue-600" />} label="Reservoir" onClick={() => addNode("reservoir", { x: 100, y: 100 })} />
+            <SmallRibbonBtn icon={<Circle className="w-[14px] h-[14px] text-blue-500" />} label="Node" onClick={() => addNode("node", { x: 150, y: 150 })} />
+            <SmallRibbonBtn icon={<GitCommitHorizontal className="w-[14px] h-[14px] text-red-500" />} label="Junction" onClick={() => addNode("junction", { x: 200, y: 150 })} />
+            <SmallRibbonBtn icon={<PlusCircle className="w-[14px] h-[14px] text-orange-500" />} label="Surge Tank" onClick={() => addNode("surgeTank", { x: 250, y: 100 })} />
+            <SmallRibbonBtn icon={<ArrowRightCircle className="w-[14px] h-[14px] text-green-600" />} label="Flow BC" onClick={() => addNode("flowBoundary", { x: 50, y: 150 })} />
+            <SmallRibbonBtn
+              icon={<PlayCircle className={`w-[14px] h-[14px] ${activeLinkTool === 'pump' ? 'text-orange-700' : 'text-orange-500'}`} />}
+              label="Pump"
+              onClick={() => onSetLinkTool?.(activeLinkTool === 'pump' ? null : 'pump')}
+              active={activeLinkTool === 'pump'}
+              data-testid="ribbon-btn-pump"
+            />
+            <SmallRibbonBtn
+              icon={<ShieldCheck className={`w-[14px] h-[14px] ${activeLinkTool === 'checkValve' ? 'text-violet-800' : 'text-violet-600'}`} />}
+              label="Check Valve"
+              onClick={() => onSetLinkTool?.(activeLinkTool === 'checkValve' ? null : 'checkValve')}
+              active={activeLinkTool === 'checkValve'}
+              data-testid="ribbon-btn-checkvalve"
+            />
+            <SmallRibbonBtn
+              icon={<Settings2 className={`w-[14px] h-[14px] ${activeLinkTool === 'turbine' ? 'text-teal-800' : 'text-teal-600'}`} />}
+              label="Turbine"
+              onClick={() => onSetLinkTool?.(activeLinkTool === 'turbine' ? null : 'turbine')}
+              active={activeLinkTool === 'turbine'}
+              data-testid="ribbon-btn-turbine"
+            />
+          </div>
         </RibbonGroup>
 
         <RibbonGroup label="Tools">
-          <RibbonBtn icon={<Layout className="w-[18px] h-[18px]" />} label="Diagram" onClick={onShowDiagram} />
-          <RibbonBtn
-            icon={<MousePointer2 className="w-[18px] h-[18px]" />}
-            label="Node Sel."
-            onClick={() => window.dispatchEvent(new CustomEvent('toggleNodeSelection'))}
-          />
-          <RibbonBtn
-            icon={<Table2 className="w-[18px] h-[18px]" />}
-            label="Flex Table"
-            onClick={() => setShowFlexTable(true)}
-            data-testid="ribbon-btn-flextable"
-          />
-          <RibbonBtn
-            icon={<BarChart2 className="w-[18px] h-[18px]" />}
-            label="Visualization"
-            onClick={onVisualization}
-            data-testid="ribbon-btn-visualization"
-          />
+          <div className="grid grid-cols-2 gap-0.5">
+            <SmallRibbonBtn icon={<Layout className="w-[14px] h-[14px]" />} label="Diagram" onClick={onShowDiagram} />
+            <SmallRibbonBtn
+              icon={<MousePointer2 className="w-[14px] h-[14px]" />}
+              label="Node Sel."
+              onClick={() => window.dispatchEvent(new CustomEvent('toggleNodeSelection'))}
+            />
+            <SmallRibbonBtn
+              icon={<Table2 className="w-[14px] h-[14px]" />}
+              label="Flex Table"
+              onClick={() => setShowFlexTable(true)}
+              data-testid="ribbon-btn-flextable"
+            />
+            <SmallRibbonBtn
+              icon={<BarChart2 className="w-[14px] h-[14px]" />}
+              label="Visualization"
+              onClick={onVisualization}
+              data-testid="ribbon-btn-visualization"
+            />
+          </div>
         </RibbonGroup>
 
         <RibbonGroup label="Analysis">
@@ -505,6 +517,32 @@ export function Header({
             highlight
             disabled={isGeneratingOut}
             data-testid="ribbon-btn-generate-out"
+          />
+        </RibbonGroup>
+
+        <RibbonGroup label="View">
+          <RibbonBtn
+            icon={<Layout className="w-[18px] h-[18px]" />}
+            label="Grid"
+            onClick={() => window.dispatchEvent(new CustomEvent('toggle-grid'))}
+          />
+          <RibbonBtn
+            icon={<Maximize2 className="w-[18px] h-[18px]" />}
+            label={isFullscreen ? "Exit FS" : "Full Screen"}
+            onClick={() => {
+              if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+              } else {
+                document.exitFullscreen();
+              }
+            }}
+          />
+          <RibbonBtn
+            icon={showHoverData ? <Eye className="w-[18px] h-[18px]" /> : <EyeOff className="w-[18px] h-[18px]" />}
+            label={showHoverData ? "Hide Labels" : "Show Labels"}
+            onClick={() => setShowHoverData(!showHoverData)}
+            active={showHoverData}
+            data-testid="ribbon-btn-toggle-labels"
           />
         </RibbonGroup>
 
