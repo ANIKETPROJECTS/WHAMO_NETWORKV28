@@ -1903,7 +1903,10 @@ export function PropertiesPanel() {
                 };
                 return (
                   <PropSection title="Pipe Material">
-                    <div className="px-3 pb-3 space-y-3">
+                    <div className="px-3 pt-2 pb-3 space-y-3">
+                      <p className="text-[11px] font-medium text-black leading-snug" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                        Select a material to auto-fill Manning's n and Young's Modulus (E).
+                      </p>
                       <Popover open={materialPickerOpen} onOpenChange={setMaterialPickerOpen}>
                         <PopoverTrigger asChild>
                           <Button
@@ -1999,6 +2002,11 @@ export function PropertiesPanel() {
 
               {/* ── WALL PROPERTIES ── */}
               <PropSection title="Wall Properties (E &amp; WT)">
+                <div className="px-3 pt-2 pb-0">
+                  <p className="text-[11px] font-medium text-black leading-snug" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                    Enter both <strong>E</strong> and <strong>WT</strong> to calculate wave speed. Diameter is used automatically.
+                  </p>
+                </div>
                 <PropRow label={`E (${currentUnit === 'SI' ? 'Pa' : 'psi'})`}>
                   <NumericInput
                     id="pipe-e"
