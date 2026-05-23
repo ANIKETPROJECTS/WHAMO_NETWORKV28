@@ -49,7 +49,7 @@ const AllHandles = () => (
   </>
 );
 
-// Circle with icon inside and label below the circle
+// Circle with icon + label both inside
 function IconNode({
   nodeId, selected, hasOrderError, icon, label, alt,
 }: {
@@ -58,24 +58,12 @@ function IconNode({
 }) {
   return (
     <div style={{ position: 'relative', width: CIRCLE_SIZE, height: CIRCLE_SIZE }} className="group">
-      <div style={circleStyle(selected, hasOrderError)}>
+      <div style={{ ...circleStyle(selected, hasOrderError), gap: 3 }}>
         <img src={icon} style={{ width: ICON_SIZE, height: ICON_SIZE, objectFit: 'contain', pointerEvents: 'none' }} alt={alt} />
+        <span style={{ fontSize: 11, fontWeight: 700, color: '#000', lineHeight: 1, whiteSpace: 'nowrap', userSelect: 'none' }}>
+          {label}
+        </span>
       </div>
-      <span style={{
-        position: 'absolute',
-        top: CIRCLE_SIZE + 4,
-        left: '50%',
-        transform: 'translateX(-50%)',
-        fontSize: 11,
-        fontWeight: 700,
-        color: '#000',
-        lineHeight: 1,
-        whiteSpace: 'nowrap',
-        userSelect: 'none',
-        pointerEvents: 'none',
-      }}>
-        {label}
-      </span>
       <AllHandles />
     </div>
   );
