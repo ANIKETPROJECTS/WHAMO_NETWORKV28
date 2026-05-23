@@ -825,6 +825,30 @@ export function PropertiesPanel() {
               />
             </PropRow>
           </PropSection>
+        ) : (isNode && element.data?.type === 'surgeTank') ? (
+          /* HAMMER-style General block for surge tank */
+          <PropSection title="General">
+            <PropRow label="Label / ID">
+              <Input
+                id="label"
+                data-testid="input-label"
+                value={formData.label ?? ''}
+                onChange={(e) => handleChange('label', e.target.value)}
+                className="h-7 text-[12px] font-medium text-black border-slate-300"
+                style={{ fontFamily: 'Poppins, sans-serif' }}
+              />
+            </PropRow>
+            <PropRow label="Comment" noBorder>
+              <Input
+                id="comment"
+                placeholder="Internal comment (c/C style)"
+                value={formData.comment ?? ''}
+                onChange={(e) => handleChange('comment', e.target.value)}
+                className="h-7 text-[12px] font-medium text-black border-slate-300"
+                style={{ fontFamily: 'Poppins, sans-serif' }}
+              />
+            </PropRow>
+          </PropSection>
         ) : (
           /* Legacy General block for pump, turbine, surge tank, flow boundary, etc. */
           <div className="space-y-4">
@@ -859,6 +883,7 @@ export function PropertiesPanel() {
         {element.data?.type !== 'reservoir' &&
           !(!isNode && (element.data?.type === 'conduit' || element.data?.type === 'dummy' || !element.data?.type)) &&
           !(isNode && (element.data?.type === 'node' || element.data?.type === 'junction')) &&
+          !(isNode && element.data?.type === 'surgeTank') &&
           <Separator />}
 
         {/* Specific Properties based on Type */}
@@ -866,6 +891,7 @@ export function PropertiesPanel() {
           {element.data?.type !== 'reservoir' &&
             !(!isNode && (element.data?.type === 'conduit' || element.data?.type === 'dummy' || !element.data?.type)) &&
             !(isNode && (element.data?.type === 'node' || element.data?.type === 'junction')) &&
+            !(isNode && element.data?.type === 'surgeTank') &&
             <h4 className="text-sm font-semibold text-black" style={{ fontFamily: 'Poppins, sans-serif' }}>Parameters</h4>}
 
           {isNode && (element.data?.type === 'node' || element.data?.type === 'junction' || element.data?.type === 'reservoir' || element.data?.type === 'surgeTank' || element.data?.type === 'flowBoundary' || formData.type_st) && (
@@ -918,7 +944,7 @@ export function PropertiesPanel() {
               })()}
 
               {/* ── RESERVOIR: already has its own PropSections (no change) ── */}
-              {element.data?.type === 'reservoir' ? null : (element.data?.type !== 'node' && element.data?.type !== 'junction') ? (
+              {element.data?.type === 'reservoir' ? null : (element.data?.type !== 'node' && element.data?.type !== 'junction' && element.data?.type !== 'surgeTank') ? (
               <div className="grid gap-1">
                 <Label htmlFor="nodeNum">Node Number</Label>
                 {(() => {
@@ -1144,10 +1170,10 @@ export function PropertiesPanel() {
                 );
               })()}
 
-              {/* Non-reservoir, non-node/junction: elevation (node/junction get it in Identification PropSection) */}
-              {element.data?.type !== 'reservoir' && element.data?.type !== 'node' && element.data?.type !== 'junction' && (
+              {/* Non-reservoir, non-node/junction, non-surgeTank: elevation */}
+              {element.data?.type !== 'reservoir' && element.data?.type !== 'node' && element.data?.type !== 'junction' && element.data?.type !== 'surgeTank' && (
               <div className="grid gap-2">
-                <Label htmlFor="elev">{element.data?.type === 'surgeTank' ? 'Node Elevation' : 'Elevation'} ({currentUnit === 'SI' ? 'm' : 'ft'})</Label>
+                <Label htmlFor="elev">Elevation ({currentUnit === 'SI' ? 'm' : 'ft'})</Label>
                 <NumericInput 
                   id="elev" 
                   value={formData.elevation} 
@@ -1588,167 +1614,180 @@ export function PropertiesPanel() {
 
           {isNode && (element.data?.type === 'surgeTank' || formData.type_st) && (
             <>
-              <div className="grid gap-2">
-                <Label htmlFor="st-type">Tank Type</Label>
-                <Select 
-                  value={formData.type_st || 'SIMPLE'} 
-                  onValueChange={(v) => {
-                    handleChange('type_st', v);
-                  }}
+              {/* ── SURGE TANK: Identification ── */}
+              {(() => {
+                const parsedNum = parseInt(nodeNumInput, 10);
+                const isDuplicate = !isNaN(parsedNum) && nodes.some(
+                  n => n.id !== selectedElementId && n.data?.nodeNumber === parsedNum
+                );
+                return (
+                  <PropSection title="Identification">
+                    <PropRow label="Node Number">
+                      <div>
+                        <Input
+                          id="nodeNum"
+                          data-testid="input-node-number"
+                          type="text"
+                          inputMode="numeric"
+                          value={nodeNumInput}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            if (v === '' || /^\d+$/.test(v)) setNodeNumInput(v);
+                          }}
+                          onBlur={handleNodeNumberBlur}
+                          className={`h-7 text-[12px] font-medium text-black border-slate-300 ${isDuplicate ? 'border-red-500 ring-1 ring-red-500' : ''}`}
+                          style={{ fontFamily: 'Poppins, sans-serif' }}
+                        />
+                        {isDuplicate && (
+                          <p className="text-[10px] text-red-600 mt-1 flex items-center gap-1" data-testid="error-node-number-duplicate">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                            Node {parsedNum} already exists
+                          </p>
+                        )}
+                      </div>
+                    </PropRow>
+                    <PropRow label={`Node Elevation (${currentUnit === 'SI' ? 'm' : 'ft'})`} noBorder>
+                      <NumericInput
+                        id="elev"
+                        value={formData.elevation}
+                        onValueChange={(v) => handleChange('elevation', v)}
+                        className="h-7 text-[12px] font-medium text-black border-slate-300"
+                        style={{ fontFamily: 'Poppins, sans-serif' } as any}
+                      />
+                    </PropRow>
+                  </PropSection>
+                );
+              })()}
+
+              {/* ── SURGE TANK: Tank Configuration ── */}
+              <PropSection title="Tank Configuration">
+                <PropRow label="Tank Type" noBorder>
+                  <Select
+                    value={formData.type_st || 'SIMPLE'}
+                    onValueChange={(v) => handleChange('type_st', v)}
+                  >
+                    <SelectTrigger id="st-type" className="h-7 text-[12px] font-medium text-black border-slate-300">
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="SIMPLE">SIMPLE</SelectItem>
+                      <SelectItem value="DIFFERENTIAL">DIFFERENTIAL</SelectItem>
+                      <SelectItem value="AIRTANK">AIRTANK</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </PropRow>
+              </PropSection>
+
+              {/* ── SURGE TANK: Geometry ── */}
+              <PropSection title="Geometry">
+                <PropRow label={`Top Elevation (${currentUnit === 'SI' ? 'm' : 'ft'})`}>
+                  <NumericInput
+                    id="tankTop"
+                    value={formData.tankTop}
+                    onValueChange={(v) => handleChange('tankTop', v)}
+                    className="h-7 text-[12px] font-medium text-black border-slate-300"
+                    style={{ fontFamily: 'Poppins, sans-serif' } as any}
+                  />
+                </PropRow>
+                <PropRow
+                  label={`Bottom Elevation (${currentUnit === 'SI' ? 'm' : 'ft'})`}
+                  noBorder={!(formData.type_st === 'AIRTANK' || formData.type_st === 'DIFFERENTIAL')}
                 >
-                  <SelectTrigger id="st-type">
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="SIMPLE">SIMPLE</SelectItem>
-                    <SelectItem value="DIFFERENTIAL">DIFFERENTIAL</SelectItem>
-                    <SelectItem value="AIRTANK">AIRTANK</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="tankTop">Top Elevation ({currentUnit === 'SI' ? 'm' : 'ft'})</Label>
-                <NumericInput 
-                  id="tankTop" 
-                  value={formData.tankTop} 
-                  onValueChange={(v) => handleChange('tankTop', v)} 
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="tankBottom">Bottom Elevation ({currentUnit === 'SI' ? 'm' : 'ft'})</Label>
-                <NumericInput 
-                  id="tankBottom" 
-                  value={formData.tankBottom} 
-                  onValueChange={(v) => handleChange('tankBottom', v)} 
-                />
-              </div>
-
-              {(formData.type_st === 'AIRTANK' || formData.type_st === 'DIFFERENTIAL') && (
-                <div className="grid gap-2">
-                  <Label htmlFor="htank">Initial Water Level (HTANK) ({currentUnit === 'SI' ? 'm' : 'ft'})</Label>
-                  <NumericInput 
-                    id="htank" 
-                    value={formData.initialWaterLevel} 
-                    onValueChange={(v) => handleChange('initialWaterLevel', v)} 
+                  <NumericInput
+                    id="tankBottom"
+                    value={formData.tankBottom}
+                    onValueChange={(v) => handleChange('tankBottom', v)}
+                    className="h-7 text-[12px] font-medium text-black border-slate-300"
+                    style={{ fontFamily: 'Poppins, sans-serif' } as any}
                   />
-                </div>
-              )}
-
-              {formData.type_st === 'DIFFERENTIAL' && (
-                <>
-                  <div className="grid gap-2">
-                    <Label htmlFor="riserdiam">Riser Diameter ({currentUnit === 'SI' ? 'm' : 'ft'})</Label>
-                    <NumericInput 
-                      id="riserdiam" 
-                      value={formData.riserDiameter} 
-                      onValueChange={(v) => handleChange('riserDiameter', v)} 
+                </PropRow>
+                {(formData.type_st === 'AIRTANK' || formData.type_st === 'DIFFERENTIAL') && (
+                  <PropRow
+                    label={`Initial Water Level HTANK (${currentUnit === 'SI' ? 'm' : 'ft'})`}
+                    noBorder={formData.type_st !== 'DIFFERENTIAL'}
+                  >
+                    <NumericInput
+                      id="htank"
+                      value={formData.initialWaterLevel}
+                      onValueChange={(v) => handleChange('initialWaterLevel', v)}
+                      className="h-7 text-[12px] font-medium text-black border-slate-300"
+                      style={{ fontFamily: 'Poppins, sans-serif' } as any}
                     />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="risertop">Riser Top Elevation ({currentUnit === 'SI' ? 'm' : 'ft'})</Label>
-                    <NumericInput 
-                      id="risertop" 
-                      value={formData.riserTop} 
-                      onValueChange={(v) => handleChange('riserTop', v)} 
+                  </PropRow>
+                )}
+                {formData.type_st === 'DIFFERENTIAL' && (
+                  <>
+                    <PropRow label={`Riser Diameter (${currentUnit === 'SI' ? 'm' : 'ft'})`}>
+                      <NumericInput
+                        id="riserdiam"
+                        value={formData.riserDiameter}
+                        onValueChange={(v) => handleChange('riserDiameter', v)}
+                        className="h-7 text-[12px] font-medium text-black border-slate-300"
+                        style={{ fontFamily: 'Poppins, sans-serif' } as any}
+                      />
+                    </PropRow>
+                    <PropRow label={`Riser Top Elevation (${currentUnit === 'SI' ? 'm' : 'ft'})`} noBorder>
+                      <NumericInput
+                        id="risertop"
+                        value={formData.riserTop}
+                        onValueChange={(v) => handleChange('riserTop', v)}
+                        className="h-7 text-[12px] font-medium text-black border-slate-300"
+                        style={{ fontFamily: 'Poppins, sans-serif' } as any}
+                      />
+                    </PropRow>
+                  </>
+                )}
+              </PropSection>
+
+              {/* ── SURGE TANK: Cross-section ── */}
+              <PropSection title="Cross-section">
+                <PropRow label="Use SHAPE instead of DIAM" noBorder={!formData.hasShape}>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox
+                      id="hasShape"
+                      checked={formData.hasShape || false}
+                      onCheckedChange={(checked) => handleChange('hasShape', !!checked)}
                     />
-                  </div>
-                </>
-              )}
-
-              <div className="flex items-center space-x-2 my-2">
-                <Checkbox 
-                  id="hasShape" 
-                  checked={formData.hasShape || false} 
-                  onCheckedChange={(checked) => handleChange('hasShape', !!checked)}
-                />
-                <Label htmlFor="hasShape" className="font-semibold text-primary">Use SHAPE instead of DIAM</Label>
-              </div>
-
-              {!formData.hasShape && (
-                <div className="grid gap-2">
-                  <Label htmlFor="diam">Diameter ({currentUnit === 'SI' ? 'm' : 'ft'})</Label>
-                  <NumericInput 
-                    id="diam" 
-                    value={formData.diameter} 
-                    onValueChange={(v) => handleChange('diameter', v)} 
-                  />
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="st-celerity">Celerity ({currentUnit === 'SI' ? 'm/s' : 'ft/s'})</Label>
-                  <NumericInput 
-                    id="st-celerity" 
-                    value={formData.celerity} 
-                    onValueChange={(v) => handleChange('celerity', v)} 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="st-friction">Friction</Label>
-                  <NumericInput 
-                    id="st-friction" 
-                    value={formData.friction} 
-                    onValueChange={(v) => handleChange('friction', v)} 
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-2 my-2">
-                <Checkbox 
-                  id="hasAddedLossST" 
-                  checked={formData.hasAddedLoss || false} 
-                  onCheckedChange={(checked) => handleChange('hasAddedLoss', !!checked)}
-                />
-                <Label htmlFor="hasAddedLossST" className="font-semibold text-primary">Added Loss Coefficients</Label>
-              </div>
-
-              {formData.hasAddedLoss && (
-                <div className="grid grid-cols-2 gap-4 p-3 bg-muted/30 rounded-md border border-border/50 mb-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="st-cplus">CPLUS</Label>
-                    <NumericInput 
-                      id="st-cplus" 
-                      value={formData.cplus} 
-                      onValueChange={(v) => handleChange('cplus', v)} 
+                    <span className="text-[12px] font-medium text-black" style={{ fontFamily: 'Poppins, sans-serif' }}>Enable SHAPE</span>
+                  </label>
+                </PropRow>
+                {!formData.hasShape && (
+                  <PropRow label={`Diameter (${currentUnit === 'SI' ? 'm' : 'ft'})`} noBorder>
+                    <NumericInput
+                      id="diam"
+                      value={formData.diameter}
+                      onValueChange={(v) => handleChange('diameter', v)}
+                      className="h-7 text-[12px] font-medium text-black border-slate-300"
+                      style={{ fontFamily: 'Poppins, sans-serif' } as any}
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="st-cminus">CMINUS</Label>
-                    <NumericInput 
-                      id="st-cminus" 
-                      value={formData.cminus} 
-                      onValueChange={(v) => handleChange('cminus', v)} 
-                    />
-                  </div>
-                </div>
-              )}
-
-              {formData.hasShape && (
-                <div className="space-y-3 mt-4">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium">Shape (E, A pairs)</Label>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="h-7 px-2"
-                      onClick={() => {
-                        const shape = (formData.shape as any[]) || [];
-                        handleChange('shape', [...shape, { e: 0, a: 0 }]);
-                      }}
-                    >
-                      Add Pair
-                    </Button>
-                  </div>
-                  
-                  <div className="space-y-2">
+                  </PropRow>
+                )}
+                {formData.hasShape && (
+                  <div className="px-3 pb-3 space-y-2">
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-[11px] font-semibold text-black uppercase tracking-wide" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                        Shape (E, A pairs)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const shape = (formData.shape as any[]) || [];
+                          handleChange('shape', [...shape, { e: 0, a: 0 }]);
+                        }}
+                        className="flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                        style={{ fontFamily: 'Poppins, sans-serif' }}
+                      >
+                        <Plus className="h-3 w-3" /> Add Pair
+                      </button>
+                    </div>
                     {((formData.shape as any[]) || []).map((pair, index) => (
-                      <div key={index} className="flex items-end gap-2 p-2 border rounded-md bg-muted/30 relative group">
-                        <div className="grid gap-1 flex-1">
-                          <Label className="text-[10px]">E ({currentUnit === 'SI' ? 'm' : 'ft'})</Label>
-                          <NumericInput 
-                            className="h-7 text-xs"
+                      <div key={index} className="flex items-center gap-2 p-2 border border-slate-200 rounded-md bg-slate-50 relative group">
+                        <div className="flex-1">
+                          <div className="text-[10px] font-medium text-black mb-0.5" style={{ fontFamily: 'Poppins, sans-serif' }}>E ({currentUnit === 'SI' ? 'm' : 'ft'})</div>
+                          <NumericInput
+                            className="h-6 text-[11px] font-medium text-black border-slate-300"
                             value={pair.e}
                             onValueChange={(v) => {
                               const newShape = [...(formData.shape as any[])];
@@ -1757,10 +1796,10 @@ export function PropertiesPanel() {
                             }}
                           />
                         </div>
-                        <div className="grid gap-1 flex-1">
-                          <Label className="text-[10px]">A ({currentUnit === 'SI' ? 'm²' : 'ft²'})</Label>
-                          <NumericInput 
-                            className="h-7 text-xs"
+                        <div className="flex-1">
+                          <div className="text-[10px] font-medium text-black mb-0.5" style={{ fontFamily: 'Poppins, sans-serif' }}>A ({currentUnit === 'SI' ? 'm²' : 'ft²'})</div>
+                          <NumericInput
+                            className="h-6 text-[11px] font-medium text-black border-slate-300"
                             value={pair.a}
                             onValueChange={(v) => {
                               const newShape = [...(formData.shape as any[])];
@@ -1769,25 +1808,87 @@ export function PropertiesPanel() {
                             }}
                           />
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                        <button
+                          type="button"
+                          className="text-red-500 hover:text-red-700 p-1 shrink-0 flex items-center justify-center"
                           onClick={() => {
                             const newShape = (formData.shape as any[]).filter((_, i) => i !== index);
                             handleChange('shape', newShape);
                           }}
                         >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
+                          <img
+                            src={deleteIconImg}
+                            alt="Delete"
+                            className="h-3.5 w-3.5 object-contain"
+                            style={{ filter: 'brightness(0) saturate(100%) invert(23%) sepia(95%) saturate(2000%) hue-rotate(340deg) brightness(100%) contrast(110%)' }}
+                          />
+                        </button>
                       </div>
                     ))}
                     {(!formData.shape || (formData.shape as any[]).length === 0) && (
-                      <p className="text-[10px] text-muted-foreground text-center py-2 italic">No shape pairs added.</p>
+                      <p className="text-[11px] text-black text-center py-2 italic" style={{ fontFamily: 'Poppins, sans-serif' }}>No shape pairs added.</p>
                     )}
                   </div>
-                </div>
-              )}
+                )}
+              </PropSection>
+
+              {/* ── SURGE TANK: Hydraulics ── */}
+              <PropSection title="Hydraulics">
+                <PropRow label={`Celerity (${currentUnit === 'SI' ? 'm/s' : 'ft/s'})`}>
+                  <NumericInput
+                    id="st-celerity"
+                    value={formData.celerity}
+                    onValueChange={(v) => handleChange('celerity', v)}
+                    className="h-7 text-[12px] font-medium text-black border-slate-300"
+                    style={{ fontFamily: 'Poppins, sans-serif' } as any}
+                  />
+                </PropRow>
+                <PropRow label="Friction" noBorder>
+                  <NumericInput
+                    id="st-friction"
+                    value={formData.friction}
+                    onValueChange={(v) => handleChange('friction', v)}
+                    className="h-7 text-[12px] font-medium text-black border-slate-300"
+                    style={{ fontFamily: 'Poppins, sans-serif' } as any}
+                  />
+                </PropRow>
+              </PropSection>
+
+              {/* ── SURGE TANK: Added Loss ── */}
+              <PropSection title="Added Loss Coefficients">
+                <PropRow label="Enable ADDEDLOSS" noBorder={!formData.hasAddedLoss}>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox
+                      id="hasAddedLossST"
+                      checked={formData.hasAddedLoss || false}
+                      onCheckedChange={(checked) => handleChange('hasAddedLoss', !!checked)}
+                    />
+                    <span className="text-[12px] font-medium text-black" style={{ fontFamily: 'Poppins, sans-serif' }}>Include ADDEDLOSS</span>
+                  </label>
+                </PropRow>
+                {formData.hasAddedLoss && (
+                  <div className="px-3 pb-3 grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <div className="text-[11px] font-semibold text-black" style={{ fontFamily: 'Poppins, sans-serif' }}>CPLUS</div>
+                      <NumericInput
+                        id="st-cplus"
+                        value={formData.cplus}
+                        onValueChange={(v) => handleChange('cplus', v)}
+                        className="h-7 text-[11px] border-slate-300"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-[11px] font-semibold text-black" style={{ fontFamily: 'Poppins, sans-serif' }}>CMINUS</div>
+                      <NumericInput
+                        id="st-cminus"
+                        value={formData.cminus}
+                        onValueChange={(v) => handleChange('cminus', v)}
+                        className="h-7 text-[11px] border-slate-300"
+                      />
+                    </div>
+                  </div>
+                )}
+              </PropSection>
             </>
           )}
 
