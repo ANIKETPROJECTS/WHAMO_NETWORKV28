@@ -801,8 +801,32 @@ export function PropertiesPanel() {
               </PropRow>
             </PropSection>
           </>
+        ) : (isNode && (element.data?.type === 'node' || element.data?.type === 'junction')) ? (
+          /* HAMMER-style General block for node / junction */
+          <PropSection title="General">
+            <PropRow label="Label / ID">
+              <Input
+                id="label"
+                data-testid="input-label"
+                value={formData.label ?? ''}
+                onChange={(e) => handleChange('label', e.target.value)}
+                className="h-7 text-[12px] font-medium text-black border-slate-300"
+                style={{ fontFamily: 'Poppins, sans-serif' }}
+              />
+            </PropRow>
+            <PropRow label="Comment" noBorder>
+              <Input
+                id="comment"
+                placeholder="Internal comment"
+                value={formData.comment ?? ''}
+                onChange={(e) => handleChange('comment', e.target.value)}
+                className="h-7 text-[12px] font-medium text-black border-slate-300"
+                style={{ fontFamily: 'Poppins, sans-serif' }}
+              />
+            </PropRow>
+          </PropSection>
         ) : (
-          /* Legacy General block for nodes, pump, turbine, etc. */
+          /* Legacy General block for pump, turbine, surge tank, flow boundary, etc. */
           <div className="space-y-4">
             <h4 className="text-sm font-semibold text-black" style={{ fontFamily: 'Poppins, sans-serif' }}>General</h4>
             <div className="grid gap-2">
@@ -832,15 +856,69 @@ export function PropertiesPanel() {
           </div>
         )}
 
-        {element.data?.type !== 'reservoir' && !(!isNode && (element.data?.type === 'conduit' || element.data?.type === 'dummy' || !element.data?.type)) && <Separator />}
+        {element.data?.type !== 'reservoir' &&
+          !(!isNode && (element.data?.type === 'conduit' || element.data?.type === 'dummy' || !element.data?.type)) &&
+          !(isNode && (element.data?.type === 'node' || element.data?.type === 'junction')) &&
+          <Separator />}
 
         {/* Specific Properties based on Type */}
         <div className="space-y-4">
-          {element.data?.type !== 'reservoir' && !(!isNode && (element.data?.type === 'conduit' || element.data?.type === 'dummy' || !element.data?.type)) && <h4 className="text-sm font-semibold text-black" style={{ fontFamily: 'Poppins, sans-serif' }}>Parameters</h4>}
+          {element.data?.type !== 'reservoir' &&
+            !(!isNode && (element.data?.type === 'conduit' || element.data?.type === 'dummy' || !element.data?.type)) &&
+            !(isNode && (element.data?.type === 'node' || element.data?.type === 'junction')) &&
+            <h4 className="text-sm font-semibold text-black" style={{ fontFamily: 'Poppins, sans-serif' }}>Parameters</h4>}
 
           {isNode && (element.data?.type === 'node' || element.data?.type === 'junction' || element.data?.type === 'reservoir' || element.data?.type === 'surgeTank' || element.data?.type === 'flowBoundary' || formData.type_st) && (
             <>
-              {element.data?.type === 'reservoir' ? null : (
+              {/* ── NODE / JUNCTION: HAMMER-style Identification PropSection ── */}
+              {(element.data?.type === 'node' || element.data?.type === 'junction') && (() => {
+                const parsedNum = parseInt(nodeNumInput, 10);
+                const isDuplicate = !isNaN(parsedNum) && nodes.some(
+                  n => n.id !== selectedElementId && n.data?.nodeNumber === parsedNum
+                );
+                return (
+                  <PropSection title="Identification">
+                    <PropRow label="Node Number">
+                      <div>
+                        <Input
+                          id="nodeNum"
+                          data-testid="input-node-number"
+                          type="text"
+                          inputMode="numeric"
+                          value={nodeNumInput}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            if (v === '' || /^\d+$/.test(v)) setNodeNumInput(v);
+                          }}
+                          onBlur={handleNodeNumberBlur}
+                          className={`h-7 text-[12px] font-medium text-black border-slate-300 ${isDuplicate ? 'border-red-500 ring-1 ring-red-500' : ''}`}
+                          style={{ fontFamily: 'Poppins, sans-serif' }}
+                        />
+                        {isDuplicate && (
+                          <p className="text-[10px] text-red-600 mt-1 flex items-center gap-1" data-testid="error-node-number-duplicate">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                            Node {parsedNum} already exists
+                          </p>
+                        )}
+                      </div>
+                    </PropRow>
+                    <PropRow label={`Elevation (${currentUnit === 'SI' ? 'm' : 'ft'})`} noBorder>
+                      <NumericInput
+                        id="elev"
+                        value={formData.elevation}
+                        onValueChange={(v) => handleChange('elevation', v)}
+                        className="h-7 text-[12px] font-medium text-black border-slate-300"
+                        style={{ fontFamily: 'Poppins, sans-serif' } as any}
+                      />
+                    </PropRow>
+                  </PropSection>
+                );
+              })()}
+
+              {/* ── RESERVOIR: already has its own PropSections (no change) ── */}
+              {element.data?.type === 'reservoir' ? null : (element.data?.type !== 'node' && element.data?.type !== 'junction') ? (
               <div className="grid gap-1">
                 <Label htmlFor="nodeNum">Node Number</Label>
                 {(() => {
@@ -876,7 +954,7 @@ export function PropertiesPanel() {
                   );
                 })()}
               </div>
-              )}
+              ) : null}
 
               {/* ── RESERVOIR: HAMMER-style PropSections ── */}
               {element.data?.type === 'reservoir' && (() => {
@@ -1066,8 +1144,8 @@ export function PropertiesPanel() {
                 );
               })()}
 
-              {/* Non-reservoir: elevation + legacy reservoir fields (kept for non-reservoir use) */}
-              {element.data?.type !== 'reservoir' && (
+              {/* Non-reservoir, non-node/junction: elevation (node/junction get it in Identification PropSection) */}
+              {element.data?.type !== 'reservoir' && element.data?.type !== 'node' && element.data?.type !== 'junction' && (
               <div className="grid gap-2">
                 <Label htmlFor="elev">{element.data?.type === 'surgeTank' ? 'Node Elevation' : 'Elevation'} ({currentUnit === 'SI' ? 'm' : 'ft'})</Label>
                 <NumericInput 
