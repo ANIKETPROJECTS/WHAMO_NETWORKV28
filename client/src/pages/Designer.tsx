@@ -44,13 +44,13 @@ import {
   X, 
   Maximize2, 
   Minimize2, 
-  Tag, 
-  EyeOff, 
-  Info, 
   ChevronDown, 
   ChevronUp,
   Layout
 } from 'lucide-react';
+import networkIcon from '@assets/network_1779525899254.png';
+import eyeOpenIcon from '@assets/view_(2)_1779527800443.png';
+import eyeHiddenIcon from '@assets/hidden_1779529637135.png';
 import html2canvas from 'html2canvas';
 import {
   Popover,
@@ -694,6 +694,8 @@ function DesignerInner() {
   const [isMaximized, setIsMaximized] = useState(false);
   const [showLabels, setShowLabels] = useState(true);
   const [diagramSvg, setDiagramSvg] = useState<string | null>(null);
+  const [diagramScale, setDiagramScale] = useState(1);
+  const diagramContainerRef = useRef<HTMLDivElement>(null);
   const [showShortcutConsole, setShowShortcutConsole] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
   const [visualizationOutContent, setVisualizationOutContent] = useState<string | null>(null);
@@ -778,6 +780,19 @@ function DesignerInner() {
       setDiagramSvg(svg);
     }
   }, [nodes, edges, showDiagram, showLabels]);
+
+  // Wheel-to-zoom on the diagram canvas
+  useEffect(() => {
+    const el = diagramContainerRef.current;
+    if (!el || !showDiagram) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.1 : 0.9;
+      setDiagramScale(s => Math.max(0.2, Math.min(6, s * factor)));
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [showDiagram]);
 
   const downloadImage = async () => {
     const element = document.getElementById('system-diagram-container');
@@ -916,6 +931,7 @@ function DesignerInner() {
           setDiagramSvg(svg);
           setShowDiagram(true);
           setIsMaximized(true);
+          setDiagramScale(1);
         }}
         onVisualization={handleVisualizationClick}
         activeLinkTool={activeLinkTool}
@@ -1078,26 +1094,26 @@ function DesignerInner() {
                   <div className="flex items-center justify-between p-3 border-b bg-card">
                     <div className="flex items-center gap-6">
                       <div className="flex items-center gap-2">
-                        <Info className="w-4 h-4 text-primary" />
-                        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">System Diagram Console</h3>
+                        <img src={networkIcon} alt="diagram" className="w-5 h-5 object-contain" />
+                        <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider whitespace-nowrap">System Diagram Console</h3>
                       </div>
                       
                       {/* Integrated Legend */}
                       <div className="flex items-center gap-3 border-l pl-5 flex-wrap">
                         {[
-                          { label: 'Reservoir',   shape: <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="0" width="18" height="12" rx="3" fill="#3498db" stroke="#2166aa" strokeWidth="1.5"/></svg> },
-                          { label: 'Surge Tank',  shape: <svg width="10" height="16" viewBox="0 0 10 16"><rect x="0" y="0" width="10" height="16" rx="2" fill="#e67e22" stroke="#b85c00" strokeWidth="1.5"/><line x1="1" y1="5" x2="9" y2="5" stroke="white" strokeWidth="1.5" opacity="0.8"/></svg> },
-                          { label: 'Flow BC',     shape: <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="0" width="18" height="12" rx="3" fill="#8e44ad" stroke="#6c3483" strokeWidth="1.5"/></svg> },
-                          { label: 'Node',        shape: <svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="7" fill="#cfd8dc" stroke="#78909c" strokeWidth="1.5"/></svg> },
-                          { label: 'Junction',    shape: <svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="7" fill="#e74c3c" stroke="#a93226" strokeWidth="1.5"/></svg> },
-                          { label: 'Pump',        shape: <svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="7" fill="#1abc9c" stroke="#148f77" strokeWidth="1.5"/></svg> },
-                          { label: 'Check Valve', shape: <svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="7" fill="#2c3e50" stroke="#1a252f" strokeWidth="1.5"/></svg> },
-                          { label: 'Turbine',     shape: <svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="7" fill="#d35400" stroke="#9a3a00" strokeWidth="1.5"/></svg> },
-                          { label: 'Conduit',     shape: <svg width="24" height="10" viewBox="0 0 24 10"><line x1="1" y1="5" x2="19" y2="5" stroke="#555" strokeWidth="1.5"/><polygon points="16,2 24,5 16,8" fill="#555"/></svg> },
+                          { label: 'Reservoir',   shape: <svg width="22" height="16" viewBox="-2 -2 26 20"><rect x="0" y="0" width="22" height="16" rx="4" fill="#2196F3" stroke="#1565C0" strokeWidth="2"/></svg> },
+                          { label: 'Surge Tank',  shape: <svg width="14" height="20" viewBox="-2 -2 18 24"><rect x="0" y="0" width="14" height="20" rx="3" fill="#FF6D00" stroke="#BF360C" strokeWidth="2"/><line x1="2" y1="6" x2="12" y2="6" stroke="rgba(255,255,255,0.8)" strokeWidth="1.5"/></svg> },
+                          { label: 'Flow BC',     shape: <svg width="22" height="16" viewBox="-2 -2 26 20"><rect x="0" y="0" width="22" height="16" rx="4" fill="#9C27B0" stroke="#6A1B9A" strokeWidth="2"/></svg> },
+                          { label: 'Node',        shape: <svg width="16" height="16" viewBox="-2 -2 20 20"><circle cx="8" cy="8" r="8" fill="#90A4AE" stroke="#546E7A" strokeWidth="2"/></svg> },
+                          { label: 'Junction',    shape: <svg width="16" height="16" viewBox="-2 -2 20 20"><circle cx="8" cy="8" r="8" fill="#F44336" stroke="#B71C1C" strokeWidth="2"/></svg> },
+                          { label: 'Pump',        shape: <svg width="16" height="16" viewBox="-2 -2 20 20"><circle cx="8" cy="8" r="8" fill="#00BCD4" stroke="#006064" strokeWidth="2"/></svg> },
+                          { label: 'Check Valve', shape: <svg width="16" height="16" viewBox="-2 -2 20 20"><circle cx="8" cy="8" r="8" fill="#37474F" stroke="#102027" strokeWidth="2"/></svg> },
+                          { label: 'Turbine',     shape: <svg width="16" height="16" viewBox="-2 -2 20 20"><circle cx="8" cy="8" r="8" fill="#FF5722" stroke="#BF360C" strokeWidth="2"/></svg> },
+                          { label: 'Conduit',     shape: <svg width="28" height="12" viewBox="0 0 28 12"><line x1="1" y1="6" x2="22" y2="6" stroke="#555" strokeWidth="1.5"/><polygon points="18,3 28,6 18,9" fill="#555"/></svg> },
                         ].map(({ label, shape }) => (
                           <div key={label} className="flex items-center gap-1.5">
                             {shape}
-                            <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-tight whitespace-nowrap">{label}</span>
+                            <span className="text-[9px] font-semibold text-foreground uppercase tracking-tight whitespace-nowrap">{label}</span>
                           </div>
                         ))}
                       </div>
@@ -1110,7 +1126,7 @@ function DesignerInner() {
                         className={cn("h-8 gap-2", !showLabels && "bg-muted")}
                         onClick={() => setShowLabels(!showLabels)}
                       >
-                        {showLabels ? <Tag className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                        <img src={showLabels ? eyeOpenIcon : eyeHiddenIcon} alt="" className="w-4 h-4 object-contain" />
                         <span className="text-xs uppercase tracking-wide font-semibold">{showLabels ? "Hide Labels" : "Show Labels"}</span>
                       </Button>
                       <Button
@@ -1137,24 +1153,17 @@ function DesignerInner() {
                     </div>
                   </div>
                   
-                  <div className="flex-1 overflow-auto bg-white">
+                  <div
+                    ref={diagramContainerRef}
+                    className="flex-1 overflow-auto bg-white"
+                    style={{ cursor: 'default' }}
+                  >
                     <div
                       id="system-diagram-container"
-                      className="p-8"
+                      className="p-8 origin-top-left"
+                      style={{ transform: `scale(${diagramScale})`, transformOrigin: 'top left', width: 'max-content' }}
                       dangerouslySetInnerHTML={{ __html: diagramSvg || '' }}
                     />
-                  </div>
-
-                  {/* Minimize button */}
-                  <div className="absolute bottom-6 right-6 z-10">
-                    <Button
-                      size="icon"
-                      variant="secondary"
-                      className="h-10 w-10 rounded-full shadow-lg border border-border/50 bg-background/80 backdrop-blur-sm"
-                      onClick={() => setIsMaximized(!isMaximized)}
-                    >
-                      {isMaximized ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-                    </Button>
                   </div>
                 </div>
               </ResizablePanel>
