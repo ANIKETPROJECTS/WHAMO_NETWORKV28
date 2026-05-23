@@ -694,8 +694,11 @@ function DesignerInner() {
   const [isMaximized, setIsMaximized] = useState(false);
   const [showLabels, setShowLabels] = useState(true);
   const [diagramSvg, setDiagramSvg] = useState<string | null>(null);
-  const [diagramScale, setDiagramScale] = useState(1);
+  const [diagramView, setDiagramView] = useState({ scale: 1, panX: 0, panY: 0 });
   const diagramContainerRef = useRef<HTMLDivElement>(null);
+  const isPanningRef = useRef(false);
+  const lastMouseRef = useRef({ x: 0, y: 0 });
+  const diagramViewRef = useRef({ scale: 1, panX: 0, panY: 0 });
   const [showShortcutConsole, setShowShortcutConsole] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
   const [visualizationOutContent, setVisualizationOutContent] = useState<string | null>(null);
@@ -781,17 +784,61 @@ function DesignerInner() {
     }
   }, [nodes, edges, showDiagram, showLabels]);
 
-  // Wheel-to-zoom on the diagram canvas
+  // Pan + zoom for diagram canvas
   useEffect(() => {
     const el = diagramContainerRef.current;
     if (!el || !showDiagram) return;
+
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
+      const { scale, panX, panY } = diagramViewRef.current;
       const factor = e.deltaY < 0 ? 1.1 : 0.9;
-      setDiagramScale(s => Math.max(0.2, Math.min(6, s * factor)));
+      const newScale = Math.max(0.1, Math.min(8, scale * factor));
+      const rect = el.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const ratio = newScale / scale;
+      const newPanX = mx - ratio * (mx - panX);
+      const newPanY = my - ratio * (my - panY);
+      const next = { scale: newScale, panX: newPanX, panY: newPanY };
+      diagramViewRef.current = next;
+      setDiagramView({ ...next });
     };
+
+    const onMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0) return;
+      isPanningRef.current = true;
+      lastMouseRef.current = { x: e.clientX, y: e.clientY };
+      el.style.cursor = 'grabbing';
+    };
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isPanningRef.current) return;
+      const dx = e.clientX - lastMouseRef.current.x;
+      const dy = e.clientY - lastMouseRef.current.y;
+      lastMouseRef.current = { x: e.clientX, y: e.clientY };
+      const prev = diagramViewRef.current;
+      const next = { ...prev, panX: prev.panX + dx, panY: prev.panY + dy };
+      diagramViewRef.current = next;
+      setDiagramView({ ...next });
+    };
+
+    const onMouseUp = () => {
+      isPanningRef.current = false;
+      el.style.cursor = 'grab';
+    };
+
     el.addEventListener('wheel', onWheel, { passive: false });
-    return () => el.removeEventListener('wheel', onWheel);
+    el.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+
+    return () => {
+      el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
   }, [showDiagram]);
 
   const downloadImage = async () => {
@@ -931,7 +978,9 @@ function DesignerInner() {
           setDiagramSvg(svg);
           setShowDiagram(true);
           setIsMaximized(true);
-          setDiagramScale(1);
+          const resetView = { scale: 1, panX: 0, panY: 0 };
+          diagramViewRef.current = resetView;
+          setDiagramView(resetView);
         }}
         onVisualization={handleVisualizationClick}
         activeLinkTool={activeLinkTool}
@@ -1155,13 +1204,17 @@ function DesignerInner() {
                   
                   <div
                     ref={diagramContainerRef}
-                    className="flex-1 overflow-auto bg-white"
-                    style={{ cursor: 'default' }}
+                    className="flex-1 overflow-hidden bg-white"
+                    style={{ cursor: 'grab', userSelect: 'none' }}
                   >
                     <div
                       id="system-diagram-container"
-                      className="p-8 origin-top-left"
-                      style={{ transform: `scale(${diagramScale})`, transformOrigin: 'top left', width: 'max-content' }}
+                      style={{
+                        transform: `translate(${diagramView.panX}px, ${diagramView.panY}px) scale(${diagramView.scale})`,
+                        transformOrigin: '0 0',
+                        width: 'max-content',
+                        willChange: 'transform',
+                      }}
                       dangerouslySetInnerHTML={{ __html: diagramSvg || '' }}
                     />
                   </div>
