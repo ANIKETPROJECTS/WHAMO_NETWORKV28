@@ -26,6 +26,7 @@ import {
   BarChart2,
   X,
 } from "lucide-react";
+import { PropSection, PropRow } from "@/components/ui/prop-section";
 import { FlexTable } from "@/components/FlexTable";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -630,20 +631,32 @@ export function Header({
         <div className="fixed inset-0 z-50 pointer-events-none">
           <div className="absolute inset-0 bg-black/30 pointer-events-auto" onClick={() => setShowCompParams(false)} />
           <div className="absolute right-0 top-0 h-full w-[420px] bg-white shadow-2xl border-l border-slate-200 flex flex-col pointer-events-auto animate-in slide-in-from-right duration-300">
-            <div className="flex items-center justify-between px-5 py-4 border-b bg-slate-50">
-              <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Computational Parameters</h2>
+
+            {/* Header bar */}
+            <div className="flex items-center justify-between px-5 py-3 border-b bg-slate-50 shrink-0">
+              <h2
+                className="text-[13px] font-bold text-slate-800 uppercase tracking-wider"
+                style={{ fontFamily: 'Poppins, sans-serif' }}
+              >
+                Computational Parameters
+              </h2>
               <button onClick={() => setShowCompParams(false)} className="p-1 rounded hover:bg-slate-200 transition-colors">
                 <X className="w-4 h-4 text-slate-500" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-semibold">Time Stages</Label>
+
+            {/* Scrollable body */}
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+
+              {/* ── Time Stages ── */}
+              <PropSection
+                title="Time Stages"
+                headerExtra={
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-8"
+                    className="h-6 text-[11px] px-2"
+                    style={{ fontFamily: 'Poppins, sans-serif' }}
                     onClick={() => {
                       const newStages = [...computationalParams.stages, { dtcomp: 0.01, dtout: 0.1, tmax: 100 }];
                       updateComputationalParams({ stages: newStages });
@@ -651,99 +664,183 @@ export function Header({
                   >
                     Add Stage
                   </Button>
-                </div>
-                <div className="space-y-3">
+                }
+              >
+                <div className="px-3 py-2 space-y-2">
+                  {/* Column headers */}
+                  <div className="grid grid-cols-12 gap-2 px-0.5">
+                    <div className="col-span-3">
+                      <span
+                        className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide"
+                        style={{ fontFamily: 'Poppins, sans-serif' }}
+                      >
+                        DTCOMP
+                      </span>
+                      <p
+                        className="text-[9px] text-slate-400 leading-tight"
+                        style={{ fontFamily: 'Poppins, sans-serif' }}
+                      >
+                        Computation step
+                      </p>
+                    </div>
+                    <div className="col-span-3">
+                      <span
+                        className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide"
+                        style={{ fontFamily: 'Poppins, sans-serif' }}
+                      >
+                        DTOUT
+                      </span>
+                      <p
+                        className="text-[9px] text-slate-400 leading-tight"
+                        style={{ fontFamily: 'Poppins, sans-serif' }}
+                      >
+                        Output interval
+                      </p>
+                    </div>
+                    <div className="col-span-4">
+                      <span
+                        className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide"
+                        style={{ fontFamily: 'Poppins, sans-serif' }}
+                      >
+                        TMAX
+                      </span>
+                      <p
+                        className="text-[9px] text-slate-400 leading-tight"
+                        style={{ fontFamily: 'Poppins, sans-serif' }}
+                      >
+                        Simulation end time
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Stage rows */}
                   {computationalParams.stages.map((stage, index) => (
-                    <div key={index} className="grid grid-cols-12 gap-2 items-end p-3 border rounded-md bg-muted/20 relative group">
-                      <div className="col-span-3 space-y-1">
-                        <Label className="text-[10px]">DTCOMP</Label>
+                    <div
+                      key={index}
+                      className="grid grid-cols-12 gap-2 items-center p-2 border border-slate-200 rounded-md bg-white relative group"
+                    >
+                      <div className="col-span-3">
                         <Input
-                          type="text" inputMode="decimal"
-                          step="0.001"
-                          className="h-8 text-xs"
+                          type="text"
+                          inputMode="decimal"
+                          className="h-7 text-[12px] font-medium text-black border-slate-300"
+                          style={{ fontFamily: 'Poppins, sans-serif' }}
                           value={stage.dtcomp}
                           onChange={e => {
                             const newStages = [...computationalParams.stages];
                             newStages[index] = { ...stage, dtcomp: parseFloat(e.target.value) || 0 };
                             updateComputationalParams({ stages: newStages });
                           }}
+                          data-testid={`input-dtcomp-${index}`}
                         />
                       </div>
-                      <div className="col-span-3 space-y-1">
-                        <Label className="text-[10px]">DTOUT</Label>
+                      <div className="col-span-3">
                         <Input
-                          type="text" inputMode="decimal"
-                          step="0.01"
-                          className="h-8 text-xs"
+                          type="text"
+                          inputMode="decimal"
+                          className="h-7 text-[12px] font-medium text-black border-slate-300"
+                          style={{ fontFamily: 'Poppins, sans-serif' }}
                           value={stage.dtout}
                           onChange={e => {
                             const newStages = [...computationalParams.stages];
                             newStages[index] = { ...stage, dtout: parseFloat(e.target.value) || 0 };
                             updateComputationalParams({ stages: newStages });
                           }}
+                          data-testid={`input-dtout-${index}`}
                         />
                       </div>
-                      <div className="col-span-4 space-y-1">
-                        <Label className="text-[10px]">TMAX</Label>
+                      <div className="col-span-4">
                         <Input
-                          type="text" inputMode="decimal"
-                          className="h-8 text-xs"
+                          type="text"
+                          inputMode="decimal"
+                          className="h-7 text-[12px] font-medium text-black border-slate-300"
+                          style={{ fontFamily: 'Poppins, sans-serif' }}
                           value={stage.tmax}
                           onChange={e => {
                             const newStages = [...computationalParams.stages];
                             newStages[index] = { ...stage, tmax: parseFloat(e.target.value) || 0 };
                             updateComputationalParams({ stages: newStages });
                           }}
+                          data-testid={`input-tmax-${index}`}
                         />
                       </div>
-                      <div className="col-span-2 pb-0.5">
+                      <div className="col-span-2 flex justify-end">
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="h-7 w-7 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
                           disabled={computationalParams.stages.length === 1}
                           onClick={() => {
                             const newStages = computationalParams.stages.filter((_, i) => i !== index);
                             updateComputationalParams({ stages: newStages });
                           }}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     </div>
                   ))}
+                  {computationalParams.stages.length === 0 && (
+                    <p
+                      className="text-[11px] text-slate-400 italic text-center py-3"
+                      style={{ fontFamily: 'Poppins, sans-serif' }}
+                    >
+                      No stages. Click &quot;Add Stage&quot; to begin.
+                    </p>
+                  )}
                 </div>
-              </div>
-              <Separator />
-              <div className="space-y-4">
-                <div className="flex items-center space-x-2">
+              </PropSection>
+
+              {/* ── Accuracy Check (ACCUTEST) ── */}
+              <PropSection title="Accuracy Check (ACCUTEST)">
+                {/* Include ACCUTEST checkbox row */}
+                <div className="flex items-center gap-3 px-3 py-3 border-b border-slate-100">
                   <Checkbox
                     id="includeAccutest-ribbon"
                     checked={computationalParams.includeAccutest !== false}
                     onCheckedChange={(checked) => updateComputationalParams({ includeAccutest: !!checked })}
+                    data-testid="checkbox-include-accutest"
                   />
-                  <Label htmlFor="includeAccutest-ribbon" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                    Include ACCUTEST in .INP
-                  </Label>
+                  <div>
+                    <Label
+                      htmlFor="includeAccutest-ribbon"
+                      className="text-[13px] font-semibold text-black leading-tight cursor-pointer"
+                      style={{ fontFamily: 'Poppins, sans-serif' }}
+                    >
+                      Include ACCUTEST in .INP
+                    </Label>
+                    <p
+                      className="text-[10px] text-slate-400 mt-0.5"
+                      style={{ fontFamily: 'Poppins, sans-serif' }}
+                    >
+                      Adds accuracy-checking block to exported file
+                    </p>
+                  </div>
                 </div>
-                <div className="space-y-2" data-disabled={computationalParams.includeAccutest === false}>
-                  <Label htmlFor="accutest-ribbon">ACCUTEST Mode</Label>
+
+                {/* ACCUTEST Mode select row */}
+                <PropRow label="ACCUTEST Mode" noBorder>
                   <Select
                     disabled={computationalParams.includeAccutest === false}
                     value={computationalParams.accutest || 'NONE'}
                     onValueChange={(v: any) => updateComputationalParams({ accutest: v })}
                   >
-                    <SelectTrigger id="accutest-ribbon">
+                    <SelectTrigger
+                      id="accutest-ribbon"
+                      className={`h-7 text-[12px] font-medium text-black border-slate-300 ${computationalParams.includeAccutest === false ? 'opacity-40' : ''}`}
+                      style={{ fontFamily: 'Poppins, sans-serif' }}
+                    >
                       <SelectValue placeholder="Select accuracy mode" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="FULL">FULL (High Accuracy)</SelectItem>
-                      <SelectItem value="PARTIAL">PARTIAL (Moderate)</SelectItem>
-                      <SelectItem value="NONE">NONE (No Checking)</SelectItem>
+                      <SelectItem value="FULL">FULL — High Accuracy</SelectItem>
+                      <SelectItem value="PARTIAL">PARTIAL — Moderate</SelectItem>
+                      <SelectItem value="NONE">NONE — No Checking</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
-              </div>
+                </PropRow>
+              </PropSection>
+
             </div>
           </div>
         </div>
@@ -782,18 +879,26 @@ export function Header({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* Output Requests Sidebar — slides in from the right */}
+      {/* ── OUTPUT REQUESTS SIDEBAR ── */}
       {showOutputDialog && (
         <div className="fixed inset-0 z-50 pointer-events-none">
           <div className="absolute inset-0 bg-black/30 pointer-events-auto" onClick={() => handleCloseOutputDialog(false)} />
           <div className="absolute right-0 top-0 h-full w-[460px] bg-white shadow-2xl border-l border-slate-200 flex flex-col pointer-events-auto animate-in slide-in-from-right duration-300">
-            <div className="flex items-center justify-between px-5 py-4 border-b bg-slate-50">
-              <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Configure Output Requests</h2>
-              <div className="flex items-center gap-2">
+
+            {/* Header bar */}
+            <div className="flex items-center justify-between px-5 py-3 border-b bg-slate-50 shrink-0">
+              <h2
+                className="text-[13px] font-bold text-slate-800 uppercase tracking-wider"
+                style={{ fontFamily: 'Poppins, sans-serif' }}
+              >
+                Configure Output Requests
+              </h2>
+              <div className="flex items-center gap-1.5">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-7 text-xs"
+                  className="h-6 text-[11px] px-2"
+                  style={{ fontFamily: 'Poppins, sans-serif' }}
                   onClick={() => {
                     const types: ("HISTORY" | "PLOT" | "SPREADSHEET")[] = ["HISTORY", "PLOT", "SPREADSHEET"];
                     const variables = ["Q", "HEAD", "ELEV", "VEL", "PRESS", "PIEZHEAD"];
@@ -826,119 +931,155 @@ export function Header({
                       });
                     });
                   }}
+                  data-testid="button-select-all-requests"
                 >
                   Select All
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-7 text-xs text-destructive hover:text-destructive"
+                  className="h-6 text-[11px] px-2 text-destructive hover:text-destructive"
+                  style={{ fontFamily: 'Poppins, sans-serif' }}
                   onClick={() => { [...outputRequests].forEach(req => removeOutputRequest(req.id)); }}
+                  data-testid="button-clear-all-requests"
                 >
                   Clear All
                 </Button>
-                <button onClick={() => handleCloseOutputDialog(false)} className="p-1 rounded hover:bg-slate-200 transition-colors ml-1">
+                <button
+                  onClick={() => handleCloseOutputDialog(false)}
+                  className="p-1 rounded hover:bg-slate-200 transition-colors ml-1"
+                >
                   <X className="w-4 h-4 text-slate-500" />
                 </button>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-              {requestType !== "SNAPSHOT" && (
-                <div className="space-y-2">
-                  <Label>Select Element</Label>
-                  <Select value={selectedElementId} onValueChange={setSelectedElementId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select element..." />
+
+            {/* Scrollable body */}
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+
+              {/* ── Request Configuration ── */}
+              <PropSection title="Request Configuration">
+
+                {/* Select Element (hidden for SNAPSHOT) */}
+                {requestType !== "SNAPSHOT" && (
+                  <PropRow label="Select Element">
+                    <Select value={selectedElementId} onValueChange={setSelectedElementId}>
+                      <SelectTrigger
+                        className="h-7 text-[12px] font-medium text-black border-slate-300"
+                        style={{ fontFamily: 'Poppins, sans-serif' }}
+                      >
+                        <SelectValue placeholder="Select element..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_" disabled>— Elements —</SelectItem>
+                        {nodes
+                          .filter((n) => n.data.type === "surgeTank" || n.data.type === "pump" || n.data.type === "checkValve" || n.data.type === "turbine" || n.type === "surgeTank" || n.type === "pump" || n.type === "checkValve" || n.type === "turbine")
+                          .filter((n) => !outputRequests.some((req) => req.elementId === n.id && req.requestType === requestType && req.isElement))
+                          .map((n) => (
+                            <SelectItem key={`element-${n.id}`} value={`element:${n.id}`}>{n.data.label}</SelectItem>
+                          ))}
+                        {Array.from(new Map(
+                          edges.filter((e) => e.data?.type === "turbine")
+                            .filter((e) => !outputRequests.some((req) => req.elementId === e.id && req.requestType === requestType))
+                            .map(e => [e.data?.label || `Edge ${e.id}`, e])
+                        ).entries()).map(([label, e]) => (
+                          <SelectItem key={`turbine-edge-${e.id}`} value={e.id}>{label}</SelectItem>
+                        ))}
+                        <SelectItem value="__" disabled>— Nodes —</SelectItem>
+                        {nodes
+                          .filter((n) => !outputRequests.some((req) => req.elementId === n.id && req.requestType === requestType && !req.isElement))
+                          .map((n) => (
+                            <SelectItem key={`node-${n.id}`} value={`node:${n.id}`}>{String(n.data.nodeNumber)}</SelectItem>
+                          ))}
+                        <SelectItem value="___" disabled>— Conduits —</SelectItem>
+                        {Array.from(new Map(
+                          edges.filter((e) => e.data?.type === "conduit")
+                            .filter((e) => !outputRequests.some((req) => req.elementId === e.id && req.requestType === requestType))
+                            .map(e => [e.data?.label || `Edge ${e.id}`, e])
+                        ).entries()).map(([label, e]) => (
+                          <SelectItem key={e.id} value={e.id}>{label}</SelectItem>
+                        ))}
+                        <SelectItem value="____" disabled>— Dummy Pipes —</SelectItem>
+                        {Array.from(new Map(
+                          edges.filter((e) => e.data?.type === "dummy")
+                            .filter((e) => !outputRequests.some((req) => req.elementId === e.id && req.requestType === requestType))
+                            .map(e => [e.data?.label || `Edge ${e.id}`, e])
+                        ).entries()).map(([label, e]) => (
+                          <SelectItem key={e.id} value={e.id}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </PropRow>
+                )}
+
+                {/* Request Type */}
+                <PropRow label="Request Type" noBorder={requestType === "SNAPSHOT"}>
+                  <Select value={requestType} onValueChange={(v: any) => setRequestType(v)}>
+                    <SelectTrigger
+                      className="h-7 text-[12px] font-medium text-black border-slate-300"
+                      style={{ fontFamily: 'Poppins, sans-serif' }}
+                    >
+                      <SelectValue placeholder="Select type..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="_" disabled>Elements</SelectItem>
-                      {nodes
-                        .filter((n) => n.data.type === "surgeTank" || n.data.type === "pump" || n.data.type === "checkValve" || n.data.type === "turbine" || n.type === "surgeTank" || n.type === "pump" || n.type === "checkValve" || n.type === "turbine")
-                        .filter((n) => !outputRequests.some((req) => req.elementId === n.id && req.requestType === requestType && req.isElement))
-                        .map((n) => (
-                          <SelectItem key={`element-${n.id}`} value={`element:${n.id}`}>{n.data.label}</SelectItem>
-                        ))}
-                      {Array.from(new Map(
-                        edges.filter((e) => e.data?.type === "turbine")
-                          .filter((e) => !outputRequests.some((req) => req.elementId === e.id && req.requestType === requestType))
-                          .map(e => [e.data?.label || `Edge ${e.id}`, e])
-                      ).entries()).map(([label, e]) => (
-                        <SelectItem key={`turbine-edge-${e.id}`} value={e.id}>{label}</SelectItem>
-                      ))}
-                      <SelectItem value="__" disabled>Nodes</SelectItem>
-                      {nodes
-                        .filter((n) => !outputRequests.some((req) => req.elementId === n.id && req.requestType === requestType && !req.isElement))
-                        .map((n) => (
-                          <SelectItem key={`node-${n.id}`} value={`node:${n.id}`}>{String(n.data.nodeNumber)}</SelectItem>
-                        ))}
-                      <SelectItem value="___" disabled>Conduits</SelectItem>
-                      {Array.from(new Map(
-                        edges.filter((e) => e.data?.type === "conduit")
-                          .filter((e) => !outputRequests.some((req) => req.elementId === e.id && req.requestType === requestType))
-                          .map(e => [e.data?.label || `Edge ${e.id}`, e])
-                      ).entries()).map(([label, e]) => (
-                        <SelectItem key={e.id} value={e.id}>{label}</SelectItem>
-                      ))}
-                      <SelectItem value="____" disabled>Dummy pipe</SelectItem>
-                      {Array.from(new Map(
-                        edges.filter((e) => e.data?.type === "dummy")
-                          .filter((e) => !outputRequests.some((req) => req.elementId === e.id && req.requestType === requestType))
-                          .map(e => [e.data?.label || `Edge ${e.id}`, e])
-                      ).entries()).map(([label, e]) => (
-                        <SelectItem key={e.id} value={e.id}>{label}</SelectItem>
-                      ))}
+                      <SelectItem value="HISTORY">HISTORY</SelectItem>
+                      <SelectItem value="PLOT">PLOT</SelectItem>
+                      <SelectItem value="SPREADSHEET">SPREADSHEET</SelectItem>
+                      <SelectItem value="SNAPSHOT">SNAPSHOT</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
-              )}
-              <div className="space-y-2">
-                <Label>Request Type</Label>
-                <Select value={requestType} onValueChange={(v: any) => setRequestType(v)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select type..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="HISTORY">HISTORY</SelectItem>
-                    <SelectItem value="PLOT">PLOT</SelectItem>
-                    <SelectItem value="SPREADSHEET">SPREADSHEET</SelectItem>
-                    <SelectItem value="SNAPSHOT">SNAPSHOT</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {requestType === "SNAPSHOT" ? (
-                <>
-                  <div className="space-y-2">
-                    <Label>TIME</Label>
-                    <input
-                      type="text" inputMode="decimal"
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                      value={snapshotTimeInput}
-                      onChange={(e) => setSnapshotTimeInput(e.target.value)}
-                      placeholder="e.g. 0"
-                      data-testid="input-snapshot-time"
-                    />
-                  </div>
-                  <Button
-                    onClick={() => {
-                      const t = parseFloat(snapshotTimeInput);
-                      if (!isNaN(t)) {
-                        addSnapshotTime(t);
-                        setSnapshotTimeInput("0");
-                        toast({ title: "Snapshot Added", description: `SNAPSHOT TIME ${t} added.` });
-                      }
-                    }}
-                    data-testid="button-add-snapshot"
-                  >
-                    Add Snapshot
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <div className="space-y-2">
-                    <Label>Variables</Label>
-                    <div className="flex flex-wrap gap-4">
+                </PropRow>
+
+                {/* SNAPSHOT inputs */}
+                {requestType === "SNAPSHOT" && (
+                  <PropRow label="Snapshot Time" noBorder>
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        className="flex h-7 flex-1 rounded-md border border-slate-300 bg-transparent px-2 py-0.5 text-[12px] font-medium text-black shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        style={{ fontFamily: 'Poppins, sans-serif' }}
+                        value={snapshotTimeInput}
+                        onChange={(e) => setSnapshotTimeInput(e.target.value)}
+                        placeholder="e.g. 0"
+                        data-testid="input-snapshot-time"
+                      />
+                      <Button
+                        size="sm"
+                        className="h-7 px-2 text-[11px] shrink-0"
+                        style={{ fontFamily: 'Poppins, sans-serif' }}
+                        onClick={() => {
+                          const t = parseFloat(snapshotTimeInput);
+                          if (!isNaN(t)) {
+                            addSnapshotTime(t);
+                            setSnapshotTimeInput("0");
+                            toast({ title: "Snapshot Added", description: `SNAPSHOT TIME ${t} added.` });
+                          }
+                        }}
+                        data-testid="button-add-snapshot"
+                      >
+                        Add
+                      </Button>
+                    </div>
+                  </PropRow>
+                )}
+              </PropSection>
+
+              {/* ── Variables (hidden for SNAPSHOT) ── */}
+              {requestType !== "SNAPSHOT" && (
+                <PropSection title="Variables">
+                  <div className="px-3 py-3">
+                    <p
+                      className="text-[10px] text-slate-400 mb-2 leading-snug"
+                      style={{ fontFamily: 'Poppins, sans-serif' }}
+                    >
+                      {isTurbineSelected
+                        ? 'Turbine element: Q, HEAD, SPEED, POWER available'
+                        : 'Select which output variables to record for this element'}
+                    </p>
+                    <div className="flex flex-wrap gap-x-4 gap-y-2">
                       {availableVars.map((v) => (
-                        <div key={v} className="flex items-center gap-2">
+                        <div key={v} className="flex items-center gap-1.5">
                           <Checkbox
                             id={`header-var-${v}`}
                             checked={selectedVars.includes(v)}
@@ -946,73 +1087,144 @@ export function Header({
                               if (checked) setSelectedVars([...selectedVars, v]);
                               else setSelectedVars(selectedVars.filter((sv) => sv !== v));
                             }}
+                            data-testid={`checkbox-var-${v}`}
                           />
-                          <Label htmlFor={`header-var-${v}`}>{v}</Label>
+                          <Label
+                            htmlFor={`header-var-${v}`}
+                            className="text-[12px] font-semibold text-black cursor-pointer"
+                            style={{ fontFamily: 'Poppins, sans-serif' }}
+                          >
+                            {v}
+                          </Label>
                         </div>
                       ))}
                     </div>
+                    <Button
+                      onClick={handleAddRequest}
+                      className="mt-3 w-full h-8 text-[12px]"
+                      style={{ fontFamily: 'Poppins, sans-serif' }}
+                      data-testid="button-add-request"
+                    >
+                      Add Request
+                    </Button>
                   </div>
-                  <Button onClick={handleAddRequest} data-testid="button-add-request">Add Request</Button>
-                </>
+                </PropSection>
               )}
-              <Separator />
-              <div className="space-y-1">
-                <Label className="block mb-2">Current Requests ({requestType})</Label>
-                {requestType === "SNAPSHOT" ? (
-                  snapshotTimes.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No snapshots added yet.</p>
-                  ) : (
-                    snapshotTimes.map((t, i) => (
-                      <div key={i} className="flex items-center justify-between text-sm py-1 border-b">
-                        <span>SNAPSHOT TIME {t}</span>
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeSnapshotTime(i)}>
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    ))
-                  )
-                ) : (
-                  [...outputRequests]
-                    .filter((req) => req.requestType === requestType)
-                    .sort((a, b) => {
-                      const elA = nodes.find((n) => n.id === a.elementId) || edges.find((e) => e.id === a.elementId);
-                      const elB = nodes.find((n) => n.id === b.elementId) || edges.find((e) => e.id === b.elementId);
-                      const getSortKey = (el) => {
-                        if (!el) return "zzzz";
-                        if (el.data?.nodeNumber !== undefined) return `node-${String(el.data.nodeNumber).padStart(10, '0')}`;
-                        return `edge-${el.data?.label || el.id}`;
-                      };
-                      return getSortKey(elA).localeCompare(getSortKey(elB), undefined, { numeric: true });
-                    })
-                    .map((req) => {
-                      const el = nodes.find((n) => n.id === req.elementId) || edges.find((e) => e.id === req.elementId);
-                      const isEdgeElem = req.elementType === 'edge';
-                      const isSurgeTankElem = req.elementType === 'node' && el?.data?.type === 'surgeTank' && req.isElement;
-                      const useElem = isEdgeElem || isSurgeTankElem;
-                      const displayLabel = useElem
-                        ? (el?.data?.label || req.elementId)
-                        : (el?.data?.nodeNumber?.toString() || el?.data?.label || req.elementId);
-                      const prefix = useElem ? 'ELEM' : 'NODE';
-                      return (
-                        <div key={`${req.id}-${req.requestType}`} className="flex items-center justify-between text-sm py-1 border-b">
-                          <span>{prefix} {displayLabel} ({req.requestType}): {req.variables.join(", ")}</span>
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeOutputRequest(req.id)}>
+
+              {/* ── Current Requests ── */}
+              <PropSection title={`Current Requests — ${requestType}`}>
+                <div className="divide-y divide-slate-100">
+                  {requestType === "SNAPSHOT" ? (
+                    snapshotTimes.length === 0 ? (
+                      <p
+                        className="text-[11px] text-slate-400 italic text-center py-4"
+                        style={{ fontFamily: 'Poppins, sans-serif' }}
+                      >
+                        No snapshots added yet.
+                      </p>
+                    ) : (
+                      snapshotTimes.map((t, i) => (
+                        <div key={i} className="flex items-center justify-between px-3 py-2">
+                          <span
+                            className="text-[12px] font-medium text-black"
+                            style={{ fontFamily: 'Poppins, sans-serif' }}
+                          >
+                            SNAPSHOT TIME {t}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-destructive"
+                            onClick={() => removeSnapshotTime(i)}
+                          >
                             <Trash2 className="w-3 h-3" />
                           </Button>
                         </div>
-                      );
-                    })
-                )}
-              </div>
+                      ))
+                    )
+                  ) : (
+                    (() => {
+                      const filtered = [...outputRequests]
+                        .filter((req) => req.requestType === requestType)
+                        .sort((a, b) => {
+                          const elA = nodes.find((n) => n.id === a.elementId) || edges.find((e) => e.id === a.elementId);
+                          const elB = nodes.find((n) => n.id === b.elementId) || edges.find((e) => e.id === b.elementId);
+                          const getSortKey = (el) => {
+                            if (!el) return "zzzz";
+                            if (el.data?.nodeNumber !== undefined) return `node-${String(el.data.nodeNumber).padStart(10, '0')}`;
+                            return `edge-${el.data?.label || el.id}`;
+                          };
+                          return getSortKey(elA).localeCompare(getSortKey(elB), undefined, { numeric: true });
+                        });
+                      if (filtered.length === 0) {
+                        return (
+                          <p
+                            className="text-[11px] text-slate-400 italic text-center py-4"
+                            style={{ fontFamily: 'Poppins, sans-serif' }}
+                          >
+                            No {requestType} requests configured.
+                          </p>
+                        );
+                      }
+                      return filtered.map((req) => {
+                        const el = nodes.find((n) => n.id === req.elementId) || edges.find((e) => e.id === req.elementId);
+                        const isEdgeElem = req.elementType === 'edge';
+                        const isSurgeTankElem = req.elementType === 'node' && el?.data?.type === 'surgeTank' && req.isElement;
+                        const useElem = isEdgeElem || isSurgeTankElem;
+                        const displayLabel = useElem
+                          ? (el?.data?.label || req.elementId)
+                          : (el?.data?.nodeNumber?.toString() || el?.data?.label || req.elementId);
+                        const prefix = useElem ? 'ELEM' : 'NODE';
+                        return (
+                          <div
+                            key={`${req.id}-${req.requestType}`}
+                            className="flex items-center justify-between px-3 py-2 group"
+                          >
+                            <div>
+                              <span
+                                className="text-[12px] font-semibold text-black"
+                                style={{ fontFamily: 'Poppins, sans-serif' }}
+                              >
+                                {prefix} {displayLabel}
+                              </span>
+                              <span
+                                className="text-[11px] text-slate-500 ml-1"
+                                style={{ fontFamily: 'Poppins, sans-serif' }}
+                              >
+                                ({req.requestType}): {req.variables.join(", ")}
+                              </span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => removeOutputRequest(req.id)}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        );
+                      });
+                    })()
+                  )}
+                </div>
+              </PropSection>
+
             </div>
+
+            {/* ── Generate footer (only when triggered from INP/OUT flow) ── */}
             {generateDialogMode && (
-              <div className="px-5 py-4 border-t bg-slate-50 flex items-center gap-3">
-                <p className="text-xs text-muted-foreground flex-1">
+              <div className="px-5 py-4 border-t bg-slate-50 flex items-center gap-3 shrink-0">
+                <p
+                  className="text-[11px] text-slate-500 flex-1 leading-snug"
+                  style={{ fontFamily: 'Poppins, sans-serif' }}
+                >
                   Review output requests above, then continue to generate the file.
                 </p>
                 <Button
                   onClick={handleConfirmGenerate}
-                  className="bg-[#1a73e8] hover:bg-[#1557b0] text-white flex-shrink-0"
+                  className="bg-[#1a73e8] hover:bg-[#1557b0] text-white flex-shrink-0 h-8 text-[12px]"
+                  style={{ fontFamily: 'Poppins, sans-serif' }}
                   data-testid="button-confirm-generate"
                 >
                   <Download className="w-4 h-4 mr-2" />
