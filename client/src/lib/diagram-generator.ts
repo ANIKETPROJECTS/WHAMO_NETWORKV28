@@ -4,8 +4,8 @@ import { WhamoNode, WhamoEdge } from './store';
 const R   = 9;                       // circle node radius
 const RRW = 42; const RRH = 26;      // reservoir / flowBoundary (w × h)
 const STW = 20; const STH = 32;      // surgeTank (w × h)
-const SX  = 150;                     // column pitch (px)
-const SY  = 90;                      // row pitch (px)
+const SX  = 190;                     // column pitch (px)
+const SY  = 110;                     // row pitch base per leaf-unit (px)
 const MG  = 85;                      // canvas margin
 
 // ─── Bright colours per type ──────────────────────────────────────────────────
@@ -226,9 +226,6 @@ export function generateSystemDiagramSVG(
   });
 
   // ── Sort each column by CANVAS y-position ─────────────────────────────────
-  // This is the key insight: the user's canvas layout already encodes the
-  // correct top-to-bottom ordering of branches. We read those positions
-  // directly instead of guessing from graph topology.
   Object.values(byLv).forEach(ids => {
     ids.sort((a, b) => {
       const vna = nm[a];
@@ -239,40 +236,65 @@ export function generateSystemDiagramSVG(
     });
   });
 
-  // ── Compute SVG dimensions ─────────────────────────────────────────────────
-  const nLevels     = Math.max(...Object.keys(byLv).map(Number)) + 1;
-  const maxPerLevel = Math.max(...Object.values(byLv).map(a => a.length));
+  // ── Subtree-aware leaf-span for proportional vertical spacing ─────────────
+  const leafSpan: Record<string, number> = {};
+  const computeLeafSpan = (id: string, visiting = new Set<string>()): number => {
+    if (id in leafSpan) return leafSpan[id];
+    if (visiting.has(id)) { leafSpan[id] = 1; return 1; }
+    visiting.add(id);
+    const children = (adj[id] || []).filter(c => !lateralSet.has(c));
+    const span = children.length === 0
+      ? 1
+      : children.reduce((s, c) => s + computeLeafSpan(c, visiting), 0);
+    leafSpan[id] = span;
+    return span;
+  };
+  vns.forEach(n => computeLeafSpan(n.id));
 
-  // Find canvas y-extent of lateral nodes relative to their anchors to size
-  // the top/bottom padding correctly.
-  let maxAbove = 0; // how far above the main centre a lateral can sit
+  // ── Compute SVG dimensions ─────────────────────────────────────────────────
+  const nLevels = Math.max(...Object.keys(byLv).map(Number)) + 1;
+
+  // Total span of level-0 column (the root column) determines full height
+  const rootIds    = byLv[0] || [];
+  const totalSpan  = rootIds.reduce((s, id) => s + Math.max(1, leafSpan[id] ?? 1), 0);
+  const totalH     = Math.max(totalSpan - 1, 0) * SY;
+
+  let maxAbove = 0;
   lateralSet.forEach(id => {
     const vn  = nm[id];
     const an  = nm[lateralAnchor[id]];
     const idy = getCanvasY(id, vn.srcType, vn.srcId, nodes, edges);
     const acy = getCanvasY(an.id, an.srcType, an.srcId, nodes, edges);
-    const diff = acy - idy; // positive → lateral is ABOVE anchor on canvas
+    const diff = acy - idy;
     if (diff > 0) maxAbove = Math.max(maxAbove, diff);
   });
 
-  // Extra vertical headroom for lateral nodes above the main layout
   const topPad = lateralSet.size > 0 ? Math.min(maxAbove + 50, 140) : 0;
+  const svgW   = MG * 2 + (nLevels - 1) * SX + RRW + 80;
+  const svgH   = Math.max(260, topPad + MG * 2 + totalH + STH + 60);
 
-  const svgW = MG * 2 + (nLevels - 1) * SX + RRW + 80;
-  const svgH = Math.max(260, topPad + MG * 2 + (maxPerLevel - 1) * SY + STH + 60);
-
-  // ── Assign 2-D positions ───────────────────────────────────────────────────
+  // ── Assign 2-D positions (subtree-aware) ──────────────────────────────────
   const pos: Record<string, { x: number; y: number }> = {};
-  const mainCentreY = topPad + MG + ((svgH - topPad - MG * 2) / 2);
+  const mainCentreY = topPad + MG + (svgH - topPad - MG * 2) / 2;
+
+  // Recursively place nodes: each node is centred within its leaf-span slot
+  const placeColumn = (ids: string[], cx: number, startY: number) => {
+    let curY = startY;
+    ids.forEach(id => {
+      const sp = Math.max(1, leafSpan[id] ?? 1);
+      const slotH = (sp - 1) * SY;
+      pos[id] = { x: cx, y: curY + slotH / 2 };
+      curY += sp * SY;
+    });
+  };
 
   Object.entries(byLv).forEach(([lStr, ids]) => {
     const l      = parseInt(lStr);
     const cx     = MG + l * SX;
-    const totalH = (ids.length - 1) * SY;
-    const startY = mainCentreY - totalH / 2;
-    ids.forEach((id, i) => {
-      pos[id] = { x: cx, y: startY + i * SY };
-    });
+    const colSpan = ids.reduce((s, id) => s + Math.max(1, leafSpan[id] ?? 1), 0);
+    const colH    = Math.max(colSpan - 1, 0) * SY;
+    const startY  = mainCentreY - colH / 2;
+    placeColumn(ids, cx, startY);
   });
 
   // ── Place lateral nodes relative to their anchor ───────────────────────────
@@ -389,11 +411,14 @@ export function generateSystemDiagramSVG(
 
     let d: string;
     if (Math.abs(y1 - y2) < 3) {
+      // Perfectly horizontal — straight line
       d = `M${x1} ${y1} L${x2} ${y2}`;
     } else {
-      // Elbow: go halfway horizontally, then snap to target row
-      const mx = x1 + (x2 - x1) * 0.5;
-      d = `M${x1} ${y1} L${mx} ${y1} L${mx} ${y2} L${x2} ${y2}`;
+      // Smooth cubic bezier S-curve: control points pull horizontally
+      // so the line exits left-to-right and curves gracefully into the target row
+      const cx1 = x1 + (x2 - x1) * 0.45;
+      const cx2 = x2 - (x2 - x1) * 0.45;
+      d = `M${x1} ${y1} C${cx1} ${y1} ${cx2} ${y2} ${x2} ${y2}`;
     }
 
     svg += `<path d="${d}" ${sty} fill="none" ${mk}/>\n`;
