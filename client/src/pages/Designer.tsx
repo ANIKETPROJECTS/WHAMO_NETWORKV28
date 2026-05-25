@@ -695,6 +695,7 @@ function DesignerInner() {
   const [isMaximized, setIsMaximized] = useState(false);
   const [showLabels, setShowLabels] = useState(true);
   const [diagramSvg, setDiagramSvg] = useState<string | null>(null);
+  const [svgNaturalSize, setSvgNaturalSize] = useState({ w: 0, h: 0 });
   const [diagramView, setDiagramView] = useState({ scale: 1, panX: 0, panY: 0 });
   const [diagramTooltip, setDiagramTooltip] = useState<{ x: number; y: number; srcId: string; srcType: string } | null>(null);
   const diagramContainerRef = useRef<HTMLDivElement>(null);
@@ -786,6 +787,13 @@ function DesignerInner() {
     }
   }, [nodes, edges, showDiagram, showLabels]);
 
+  // Parse natural SVG dimensions whenever the SVG string changes
+  useEffect(() => {
+    if (!diagramSvg) return;
+    const m = diagramSvg.match(/width="(\d+(?:\.\d+)?)"[^>]*height="(\d+(?:\.\d+)?)"/);
+    if (m) setSvgNaturalSize({ w: parseFloat(m[1]), h: parseFloat(m[2]) });
+  }, [diagramSvg]);
+
   // Pan + zoom for diagram canvas
   useEffect(() => {
     const el = diagramContainerRef.current;
@@ -842,6 +850,24 @@ function DesignerInner() {
       window.removeEventListener('mouseup', onMouseUp);
     };
   }, [showDiagram]);
+
+  // Apply zoom/pan via SVG viewBox instead of CSS transform so the vector
+  // content is always re-rendered at full device resolution (no blur).
+  useEffect(() => {
+    if (!svgNaturalSize.w) return;
+    const container = diagramContainerRef.current;
+    if (!container) return;
+    const svgEl = container.querySelector('svg') as SVGSVGElement | null;
+    if (!svgEl) return;
+    const { scale, panX, panY } = diagramView;
+    const cW = container.clientWidth  || svgNaturalSize.w;
+    const cH = container.clientHeight || svgNaturalSize.h;
+    svgEl.setAttribute('width',  String(cW));
+    svgEl.setAttribute('height', String(cH));
+    svgEl.setAttribute('preserveAspectRatio', 'none');
+    svgEl.setAttribute('viewBox',
+      `${-panX / scale} ${-panY / scale} ${cW / scale} ${cH / scale}`);
+  }, [diagramView, svgNaturalSize]);
 
   const handleDiagramMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (isPanningRef.current) { setDiagramTooltip(null); return; }
@@ -1201,12 +1227,7 @@ function DesignerInner() {
                   >
                     <div
                       id="system-diagram-container"
-                      style={{
-                        transform: `translate(${diagramView.panX}px, ${diagramView.panY}px) scale(${diagramView.scale})`,
-                        transformOrigin: '0 0',
-                        width: 'max-content',
-                        willChange: 'transform',
-                      }}
+                      style={{ width: '100%', height: '100%' }}
                       dangerouslySetInnerHTML={{ __html: diagramSvg || '' }}
                     />
                     {/* React tooltip overlay — always renders on top of SVG */}
