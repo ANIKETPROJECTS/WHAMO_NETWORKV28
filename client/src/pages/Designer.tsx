@@ -61,7 +61,6 @@ import {
 import { ValidationModal } from '@/components/ValidationModal';
 import { validateNetwork, ValidationError } from '@/lib/validator';
 import { VisualizationView } from '@/components/visualization/VisualizationView';
-import { FilePreviewModal } from '@/components/FilePreviewModal';
 
 const nodeTypes = {
   reservoir: ReservoirNode,
@@ -1020,17 +1019,6 @@ function DesignerInner() {
         onShowFilePreview={(content, fileName, type) => setFilePreview({ content, fileName, type })}
       />
 
-      {/* File Preview Modal */}
-      {filePreview && (
-        <FilePreviewModal
-          isOpen={!!filePreview}
-          onClose={() => setFilePreview(null)}
-          content={filePreview.content}
-          fileName={filePreview.fileName}
-          type={filePreview.type}
-        />
-      )}
-
       {/* Simulation running overlay */}
       {isRunningSimulation && (
         <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-center justify-center">
@@ -1117,39 +1105,117 @@ function DesignerInner() {
                     </div>
                   </div>
                 )}
-                <ReactFlow
-                  nodes={nodes as any}
-                  edges={edges as any}
-                  onNodesChange={onNodesChange}
-                  onEdgesChange={onEdgesChange}
-                  onConnect={activeLinkTool ? undefined : onConnect}
-                  onConnectEnd={activeLinkTool ? undefined : onConnectEnd}
-                  isValidConnection={isValidConnection}
-                  nodeTypes={nodeTypes}
-                  edgeTypes={edgeTypes}
-                  onNodeClick={onNodeClick}
-                  onEdgeClick={onEdgeClick}
-                  onSelectionChange={onSelectionChange as any}
-                  onPaneClick={() => { setShowNodeSelection(false); if (activeLinkTool) { setActiveLinkTool(null); setLinkSourceNodeId(null); } }}
-                  fitView
-                  minZoom={0.05}
-                  maxZoom={4}
-                  className={cn("bg-white", activeLinkTool && "cursor-crosshair")}
-                  proOptions={{ hideAttribution: true }}
-                  nodesDraggable={!isLocked && !activeLinkTool}
-                  nodesConnectable={!isLocked}
-                  elementsSelectable={!activeLinkTool}
-                >
-                  <Background color="#94a3b8" gap={20} size={1} className={cn(!showGrid && "opacity-0")} />
-                  <Controls className="!bg-white !shadow-xl !border-border">
-                  </Controls>
-                </ReactFlow>
-                
-                {isLocked && (
-                  <div className="absolute top-4 right-4 bg-orange-100 text-orange-800 px-3 py-1 rounded-md text-sm font-medium border border-orange-200 shadow-sm z-50 flex items-center gap-2">
-                    <span className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
-                    Network Locked
+                {filePreview ? (
+                  /* ── Inline File Preview (replaces canvas) ── */
+                  <div className="flex flex-col w-full h-full bg-[#1e1e2e]">
+                    {/* Header bar */}
+                    <div className="flex items-center justify-between px-5 py-3 bg-[#181825] border-b border-[#313244] flex-shrink-0">
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
+                            filePreview.type === 'inp'
+                              ? 'bg-blue-900/60 text-blue-300 border-blue-700'
+                              : 'bg-emerald-900/60 text-emerald-300 border-emerald-700'
+                          }`}
+                          style={{ fontFamily: 'Poppins, sans-serif' }}
+                        >
+                          {filePreview.type === 'inp' ? 'INP' : 'OUT'}
+                        </span>
+                        <span
+                          className="text-sm font-semibold text-[#cdd6f4] truncate max-w-[400px]"
+                          style={{ fontFamily: 'Poppins, sans-serif' }}
+                        >
+                          {filePreview.fileName}
+                        </span>
+                        <span className="text-xs text-[#6c7086]" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                          {filePreview.content.split('\n').length.toLocaleString()} lines
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            const blob = new Blob([filePreview.content], { type: 'text/plain;charset=utf-8' });
+                            saveAs(blob, filePreview.fileName);
+                          }}
+                          className="flex items-center gap-1.5 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-semibold rounded-lg transition-colors"
+                          style={{ fontFamily: 'Poppins, sans-serif' }}
+                          data-testid="btn-preview-download"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          Download {filePreview.type === 'inp' ? 'INP' : 'OUT'}
+                        </button>
+                        <button
+                          onClick={() => setFilePreview(null)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#313244] hover:bg-[#45475a] text-[#cdd6f4] text-sm font-semibold rounded-lg transition-colors"
+                          style={{ fontFamily: 'Poppins, sans-serif' }}
+                          data-testid="btn-preview-close"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                    {/* Code content with line numbers */}
+                    <div className="flex-1 overflow-auto">
+                      <table className="w-full border-collapse">
+                        <tbody>
+                          {filePreview.content.split('\n').map((line, i) => (
+                            <tr key={i} className="hover:bg-white/5 group">
+                              <td
+                                className="select-none text-right pr-4 pl-4 text-[#6c7086] text-xs leading-6 w-12 border-r border-[#313244] align-top"
+                                style={{ fontFamily: '"JetBrains Mono","Fira Code",monospace', minWidth: '3rem' }}
+                              >
+                                {i + 1}
+                              </td>
+                              <td
+                                className="pl-5 pr-4 text-[#cdd6f4] text-[13px] leading-6 whitespace-pre align-top"
+                                style={{ fontFamily: '"JetBrains Mono","Fira Code",monospace' }}
+                              >
+                                {line || ' '}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
+                ) : (
+                  <>
+                    <ReactFlow
+                      nodes={nodes as any}
+                      edges={edges as any}
+                      onNodesChange={onNodesChange}
+                      onEdgesChange={onEdgesChange}
+                      onConnect={activeLinkTool ? undefined : onConnect}
+                      onConnectEnd={activeLinkTool ? undefined : onConnectEnd}
+                      isValidConnection={isValidConnection}
+                      nodeTypes={nodeTypes}
+                      edgeTypes={edgeTypes}
+                      onNodeClick={onNodeClick}
+                      onEdgeClick={onEdgeClick}
+                      onSelectionChange={onSelectionChange as any}
+                      onPaneClick={() => { setShowNodeSelection(false); if (activeLinkTool) { setActiveLinkTool(null); setLinkSourceNodeId(null); } }}
+                      fitView
+                      minZoom={0.05}
+                      maxZoom={4}
+                      className={cn("bg-white", activeLinkTool && "cursor-crosshair")}
+                      proOptions={{ hideAttribution: true }}
+                      nodesDraggable={!isLocked && !activeLinkTool}
+                      nodesConnectable={!isLocked}
+                      elementsSelectable={!activeLinkTool}
+                    >
+                      <Background color="#94a3b8" gap={20} size={1} className={cn(!showGrid && "opacity-0")} />
+                      <Controls className="!bg-white !shadow-xl !border-border">
+                      </Controls>
+                    </ReactFlow>
+
+                    {isLocked && (
+                      <div className="absolute top-4 right-4 bg-orange-100 text-orange-800 px-3 py-1 rounded-md text-sm font-medium border border-orange-200 shadow-sm z-50 flex items-center gap-2">
+                        <span className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
+                        Network Locked
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
