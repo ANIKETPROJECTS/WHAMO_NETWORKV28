@@ -61,6 +61,8 @@ import {
 import { ValidationModal } from '@/components/ValidationModal';
 import { validateNetwork, ValidationError } from '@/lib/validator';
 import { VisualizationView } from '@/components/visualization/VisualizationView';
+import { ProjectsListPanel } from '@/components/ProjectsListPanel';
+import { getAuthHeader } from '@/lib/queryClient';
 
 const nodeTypes = {
   reservoir: ReservoirNode,
@@ -181,12 +183,12 @@ function DesignerInner() {
     }) as WhamoEdge[];
   };
 
-  const handleSave = async () => {
+  const buildProjectData = () => {
     const state = useNetworkStore.getState();
     const profiles = buildPipeProfiles(edges as WhamoEdge[]);
-    const data = { 
+    return {
       projectName,
-      nodes, 
+      nodes,
       edges: compactEdges(edges as WhamoEdge[], profiles),
       pipeProfiles: profiles,
       computationalParams,
@@ -199,35 +201,39 @@ function DesignerInner() {
       qSchedules,
       nodeSelectionSet: Array.from(nodeSelectionSet),
     };
-    const json = JSON.stringify(data, null, 2);
-    const suggestedName = `${projectName.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'network'}.json`;
+  };
 
-    // Path 1: we already have a handle for the original file — write in place.
-    if (loadedFileHandle && 'showSaveFilePicker' in window) {
-      try {
-        const options = { mode: 'readwrite' };
-        if (await (loadedFileHandle as any).queryPermission(options) !== 'granted') {
-          if (await (loadedFileHandle as any).requestPermission(options) !== 'granted') {
-            throw new Error("Permission denied");
-          }
-        }
-        const writable = await (loadedFileHandle as any).createWritable();
-        await writable.write(json);
-        await writable.close();
-        const fname = (loadedFileHandle as any).name || projectName;
-        toast({ variant: "success", title: "Project Saved", description: `Changes saved to ${fname}.` });
-        return;
-      } catch (err) {
-        console.warn("Direct save failed, will prompt for location:", err);
+  const handleSave = async () => {
+    const data = buildProjectData();
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...getAuthHeader(),
+    };
+    try {
+      let saved: any;
+      if (serverProjectId) {
+        const res = await fetch(`/api/projects/${serverProjectId}`, {
+          method: "PUT",
+          headers,
+          body: JSON.stringify({ name: projectName, content: data }),
+        });
+        if (!res.ok) throw new Error("Update failed");
+        saved = await res.json();
+      } else {
+        const res = await fetch("/api/projects", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ name: projectName, content: data }),
+        });
+        if (!res.ok) throw new Error("Create failed");
+        saved = await res.json();
+        setServerProjectId(saved.id);
       }
+      toast({ variant: "success", title: "Project Saved", description: `"${projectName}" saved to your account.` });
+    } catch (err) {
+      console.error("Server save failed:", err);
+      toast({ variant: "destructive", title: "Save Failed", description: "Could not save project. Please try again." });
     }
-
-    // No handle available — Save should behave like a quiet save (no picker).
-    // The picker prompt is reserved for "Save As". We auto-download using the
-    // current project name so the user keeps working in the same file.
-    const blob = new Blob([json], { type: 'application/json' });
-    saveAs(blob, suggestedName);
-    toast({ variant: "success", title: "Project Saved", description: `Network saved as ${suggestedName}.` });
   };
 
   const handleSaveAs = async () => {
@@ -548,54 +554,8 @@ function DesignerInner() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [deleteElement, selectedElementId, selectedElementType, zoomIn, zoomOut, fitView, toggleLock, undo, redo, handleSave]);
 
-  const handleLoadClick = async () => {
-    if ('showOpenFilePicker' in window) {
-      try {
-        const [handle] = await (window as any).showOpenFilePicker({
-          types: [
-            {
-              description: 'WHAMO Projects',
-              accept: {
-                'application/json': ['.json'],
-                'text/plain': ['.inp']
-              }
-            }
-          ]
-        });
-
-        const file = await handle.getFile();
-        const content = await file.text();
-        const fileName = file.name.toLowerCase();
-
-        if (fileName.endsWith('.json')) {
-          const json = JSON.parse(content);
-          if (json.nodes && json.edges) {
-            const loadedProjectName = json.projectName || file.name.replace(/\.json$/i, '');
-            const expandedEdges = expandEdges(json.edges, json.pipeProfiles);
-            loadNetwork(json.nodes, expandedEdges, { ...json.computationalParams, qSchedules: json.qSchedules, hSchedules: json.hSchedules }, json.outputRequests, loadedProjectName, handle, json.pcharData, json.snapshotTimes, json.nodeSelectionSet, json.tcharData, json.vSchedules);
-            setProjectState("active");
-            toast({ title: "Project Loaded", description: `Network topology "${loadedProjectName}" restored from JSON.` });
-          } else {
-            throw new Error("Invalid JSON format");
-          }
-        } else if (fileName.endsWith('.inp')) {
-          const { nodes, edges, projectName: parsedName, computationalParams: parsedParams, pcharData, tcharData, vSchedules } = parseInpFile(content);
-          if (nodes.length > 0) {
-            const loadedProjectName = parsedName || file.name.replace(/\.inp$/i, '');
-            loadNetwork(nodes, edges, parsedParams, undefined, loadedProjectName, handle, pcharData, undefined, undefined, tcharData, vSchedules);
-            setProjectState("active");
-            toast({ title: "Project Loaded", description: `Network topology "${loadedProjectName}" restored from .inp file.` });
-          } else {
-            throw new Error("No valid network elements found in .inp file");
-          }
-        }
-        return;
-      } catch (err: any) {
-        if (err.name === 'AbortError') return;
-        console.error("Native load failed, falling back to hidden input", err);
-      }
-    }
-    fileInputRef.current?.click();
+  const handleLoadClick = () => {
+    setShowProjectsList(true);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -616,6 +576,7 @@ function DesignerInner() {
             const expandedEdges = expandEdges(json.edges, json.pipeProfiles);
             loadNetwork(json.nodes, expandedEdges, { ...json.computationalParams, qSchedules: json.qSchedules, hSchedules: json.hSchedules }, json.outputRequests, loadedProjectName, undefined, json.pcharData, json.snapshotTimes, json.nodeSelectionSet, json.tcharData, json.vSchedules);
             setProjectState("active");
+            setServerProjectId(null);
             toast({ title: "Project Loaded", description: `Network topology "${loadedProjectName}" restored from JSON.` });
           } else {
             throw new Error("Invalid JSON format");
@@ -626,6 +587,7 @@ function DesignerInner() {
             const loadedProjectName = parsedName || file.name.replace(/\.inp$/i, '');
             loadNetwork(nodes, edges, parsedParams, undefined, loadedProjectName, undefined, pcharData, undefined, undefined, tcharData, vSchedules);
             setProjectState("active");
+            setServerProjectId(null);
             toast({ title: "Project Loaded", description: `Network topology "${loadedProjectName}" restored from .inp file.` });
           } else {
             throw new Error("No valid network elements found in .inp file");
@@ -699,6 +661,8 @@ function DesignerInner() {
   const [visualizationFileName, setVisualizationFileName] = useState<string>("");
   const [isRunningSimulation, setIsRunningSimulation] = useState(false);
   const [filePreview, setFilePreview] = useState<{ content: string; fileName: string; type: 'inp' | 'out' } | null>(null);
+  const [serverProjectId, setServerProjectId] = useState<number | null>(null);
+  const [showProjectsList, setShowProjectsList] = useState(false);
 
   useEffect(() => {
     const handleToggleGrid = () => setShowGrid((prev) => !prev);
@@ -714,16 +678,77 @@ function DesignerInner() {
 
   const handleNewProject = () => {
     clearNetwork();
+    setServerProjectId(null);
     setProjectState("active");
   };
 
+  const handleLoadFromServer = (project: any) => {
+    const json = project.content;
+    const loadedProjectName = json.projectName || project.name;
+    const profiles = json.pipeProfiles || {};
+    const expandedEdges = expandEdges(json.edges || [], profiles);
+    loadNetwork(
+      json.nodes || [],
+      expandedEdges,
+      { ...json.computationalParams, qSchedules: json.qSchedules, hSchedules: json.hSchedules },
+      json.outputRequests,
+      loadedProjectName,
+      undefined,
+      json.pcharData,
+      json.snapshotTimes,
+      json.nodeSelectionSet,
+      json.tcharData,
+      json.vSchedules,
+    );
+    setProjectState("active");
+    setServerProjectId(project.id);
+    setShowProjectsList(false);
+    toast({ title: "Project Loaded", description: `"${loadedProjectName}" opened from your account.` });
+  };
+
+  const handleLoadFromFileSystem = async () => {
+    if ('showOpenFilePicker' in window) {
+      try {
+        const [handle] = await (window as any).showOpenFilePicker({
+          types: [{ description: 'WHAMO Projects', accept: { 'application/json': ['.json'], 'text/plain': ['.inp'] } }]
+        });
+        const file = await handle.getFile();
+        const content = await file.text();
+        const fileName = file.name.toLowerCase();
+        if (fileName.endsWith('.json')) {
+          const json = JSON.parse(content);
+          if (json.nodes && json.edges) {
+            const name = json.projectName || file.name.replace(/\.json$/i, '');
+            const expandedEdges = expandEdges(json.edges, json.pipeProfiles);
+            loadNetwork(json.nodes, expandedEdges, { ...json.computationalParams, qSchedules: json.qSchedules, hSchedules: json.hSchedules }, json.outputRequests, name, handle, json.pcharData, json.snapshotTimes, json.nodeSelectionSet, json.tcharData, json.vSchedules);
+            setProjectState("active");
+            setServerProjectId(null);
+            setShowProjectsList(false);
+            toast({ title: "Project Loaded", description: `"${name}" imported from file.` });
+          }
+        } else if (fileName.endsWith('.inp')) {
+          const { nodes: n, edges: e, projectName: pn, computationalParams: cp, pcharData: pd, tcharData: td, vSchedules: vs } = parseInpFile(content);
+          if (n.length > 0) {
+            const name = pn || file.name.replace(/\.inp$/i, '');
+            loadNetwork(n, e, cp, undefined, name, handle, pd, undefined, undefined, td, vs);
+            setProjectState("active");
+            setServerProjectId(null);
+            setShowProjectsList(false);
+            toast({ title: "Project Loaded", description: `"${name}" imported from .inp file.` });
+          }
+        }
+        return;
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
+        console.error("File picker failed, falling back to input", err);
+      }
+    }
+    fileInputRef.current?.click();
+    setShowProjectsList(false);
+  };
+
   const handleOpenProject = () => {
-    // Use the same path as the File > Open menu so we capture a file handle
-    // (via showOpenFilePicker) when the browser supports it. That handle lets
-    // Save write directly back to the same file. If the picker is unavailable
-    // or blocked (e.g. proxied iframe), handleLoadClick falls back to the
-    // hidden input automatically.
-    handleLoadClick();
+    setShowProjectsList(true);
   };
 
   const handleVisualizationClick = async () => {
@@ -1018,6 +1043,16 @@ function DesignerInner() {
         onSetLinkTool={setActiveLinkTool}
         onShowFilePreview={(content, fileName, type) => setFilePreview({ content, fileName, type })}
       />
+
+      {/* Projects List Panel */}
+      {showProjectsList && (
+        <ProjectsListPanel
+          onClose={() => setShowProjectsList(false)}
+          onLoadProject={handleLoadFromServer}
+          onLoadFromFile={handleLoadFromFileSystem}
+          currentProjectId={serverProjectId}
+        />
+      )}
 
       {/* Simulation running overlay */}
       {isRunningSimulation && (

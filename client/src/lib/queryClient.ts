@@ -1,20 +1,18 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+const TOKEN_KEY = "whamo_auth_token";
+
+export function getAuthHeader(): Record<string, string> {
+  const token = localStorage.getItem(TOKEN_KEY);
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const json = await res.json().catch(() => null);
     const message = json?.message || res.statusText || String(res.status);
     const error = new Error(`${res.status}: ${message}`);
     (error as any).stack = json?.stack;
-    
-    // Log detailed error to console for development
-    console.group(`Server Error [${res.status}]`);
-    console.error(`Message: ${message}`);
-    if (json?.stack) {
-      console.error(`Stack Trace:\n${json.stack}`);
-    }
-    console.groupEnd();
-    
     throw error;
   }
 }
@@ -22,11 +20,14 @@ async function throwIfResNotOk(res: Response) {
 export async function apiRequest(
   method: string,
   url: string,
-  data?: unknown | undefined,
+  data?: unknown,
 ): Promise<Response> {
+  const headers: Record<string, string> = { ...getAuthHeader() };
+  if (data) headers["Content-Type"] = "application/json";
+
   const res = await fetch(url, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers,
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
@@ -43,6 +44,7 @@ export const getQueryFn: <T>(options: {
   async ({ queryKey }) => {
     const res = await fetch(queryKey.join("/") as string, {
       credentials: "include",
+      headers: getAuthHeader(),
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {

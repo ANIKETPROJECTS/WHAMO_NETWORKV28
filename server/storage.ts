@@ -5,9 +5,9 @@ import {
 } from "@shared/schema";
 
 export interface IStorage {
-  getProjects(): Promise<ProjectResponse[]>;
+  getProjectsByUser(userId: string): Promise<ProjectResponse[]>;
   getProject(id: number): Promise<ProjectResponse | undefined>;
-  createProject(project: InsertProject): Promise<ProjectResponse>;
+  createProject(project: InsertProject, userId: string): Promise<ProjectResponse>;
   updateProject(id: number, updates: UpdateProjectRequest): Promise<ProjectResponse>;
   deleteProject(id: number): Promise<void>;
 }
@@ -21,20 +21,29 @@ export class MemStorage implements IStorage {
     this.currentId = 1;
   }
 
-  async getProjects(): Promise<ProjectResponse[]> {
-    return Array.from(this.projects.values());
+  async getProjectsByUser(userId: string): Promise<ProjectResponse[]> {
+    return Array.from(this.projects.values())
+      .filter(p => p.userId === userId)
+      .sort((a, b) => {
+        const da = (a.updatedAt || a.createdAt)?.getTime() ?? 0;
+        const db = (b.updatedAt || b.createdAt)?.getTime() ?? 0;
+        return db - da;
+      });
   }
 
   async getProject(id: number): Promise<ProjectResponse | undefined> {
     return this.projects.get(id);
   }
 
-  async createProject(insertProject: InsertProject): Promise<ProjectResponse> {
+  async createProject(insertProject: InsertProject, userId: string): Promise<ProjectResponse> {
     const id = this.currentId++;
+    const now = new Date();
     const project: ProjectResponse = {
       ...insertProject,
       id,
-      createdAt: new Date(),
+      userId,
+      createdAt: now,
+      updatedAt: now,
     };
     this.projects.set(id, project);
     return project;
@@ -42,10 +51,8 @@ export class MemStorage implements IStorage {
 
   async updateProject(id: number, updates: UpdateProjectRequest): Promise<ProjectResponse> {
     const existing = this.projects.get(id);
-    if (!existing) {
-      throw new Error(`Project with id \${id} not found`);
-    }
-    const updated = { ...existing, ...updates };
+    if (!existing) throw new Error(`Project ${id} not found`);
+    const updated = { ...existing, ...updates, updatedAt: new Date() };
     this.projects.set(id, updated);
     return updated;
   }

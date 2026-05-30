@@ -146,6 +146,8 @@ export type Project = {
   name: string;
   content: any;
   createdAt: Date | null;
+  updatedAt: Date | null;
+  userId: string;
 };
 export type InsertProject = z.infer<typeof insertProjectSchema>;
 
