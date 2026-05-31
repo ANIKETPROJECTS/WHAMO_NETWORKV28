@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -16,9 +16,13 @@ export default function Login() {
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [copiedPass, setCopiedPass] = useState(false);
 
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (user) setLocation("/designer");
+  }, [user, setLocation]);
 
   const validate = () => {
     const e: typeof errors = {};
@@ -35,7 +39,6 @@ export default function Login() {
     setIsLoading(true);
     try {
       await login(email.trim(), password);
-      setLocation("/designer");
     } catch (err: any) {
       toast({ variant: "destructive", title: "Login Failed", description: err.message });
     } finally {
