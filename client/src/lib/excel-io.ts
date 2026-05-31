@@ -714,48 +714,6 @@ export async function exportTabToExcel(
     }
   }
 
-  // ── Legend sheet ──
-  const legendWs = wb.addWorksheet('Legend (do not edit)');
-  legendWs.columns = [
-    { header: 'Column', key: 'col', width: 28 },
-    { header: 'Field Type', key: 'type', width: 16 },
-    { header: 'Allowed Values / Notes', key: 'vals', width: 60 },
-  ];
-  const legendHeader = legendWs.getRow(1);
-  legendHeader.eachCell(cell => {
-    cell.fill = HEADER_FILL;
-    cell.font = HEADER_FONT;
-    cell.alignment = { vertical: 'middle' };
-  });
-  legendHeader.height = 20;
-
-  cols.forEach(col => {
-    const row = legendWs.addRow({
-      col: col.header,
-      type: col.readOnly ? 'Read-only'
-          : col.type === 'dropdown' ? 'Dropdown'
-          : col.type === 'number'   ? 'Number (decimal)'
-          : 'Text',
-      vals: col.readOnly
-          ? 'Do not edit — informational only'
-          : col.options
-          ? col.options.slice(0, 10).join(', ') + (col.options.length > 10 ? ` … (${col.options.length} total)` : '')
-          : col.type === 'number'
-          ? 'Any numeric value (integers or decimals)'
-          : 'Free text',
-    });
-    row.getCell('type').fill = col.readOnly
-      ? READONLY_FILL_EVEN
-      : col.type === 'dropdown'
-      ? DROPDOWN_FILL_EVEN
-      : NORMAL_FILL_EVEN;
-    row.eachCell(cell => {
-      cell.font = { size: 10 };
-      cell.border = CELL_BORDER;
-    });
-    row.height = 16;
-  });
-
   // ── Download ──
   const buffer = await wb.xlsx.writeBuffer();
   const blob = new Blob([buffer], {
