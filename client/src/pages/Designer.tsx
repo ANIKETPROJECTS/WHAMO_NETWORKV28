@@ -209,16 +209,18 @@ function DesignerInner() {
     };
   };
 
-  const handleSave = async () => {
+  const handleSave = async (silent = false) => {
     const data = buildProjectData();
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       ...getAuthHeader(),
     };
+    // Always read from the ref so the autosave interval (stale closure) gets the current ID
+    const currentProjectId = serverProjectIdRef.current;
     try {
       let saved: any;
-      if (serverProjectId) {
-        const res = await fetch(`/api/projects/${serverProjectId}`, {
+      if (currentProjectId) {
+        const res = await fetch(`/api/projects/${currentProjectId}`, {
           method: "PUT",
           headers,
           body: JSON.stringify({ name: projectName, content: data }),
@@ -234,11 +236,16 @@ function DesignerInner() {
         if (!res.ok) throw new Error("Create failed");
         saved = await res.json();
         setServerProjectId(saved.id);
+        serverProjectIdRef.current = saved.id;
       }
-      toast({ variant: "success", title: "Project Saved", description: `"${projectName}" saved to your account.` });
+      if (!silent) {
+        toast({ variant: "success", title: "Project Saved", description: `"${projectName}" saved to your account.` });
+      }
     } catch (err) {
       console.error("Server save failed:", err);
-      toast({ variant: "destructive", title: "Save Failed", description: "Could not save project. Please try again." });
+      if (!silent) {
+        toast({ variant: "destructive", title: "Save Failed", description: "Could not save project. Please try again." });
+      }
     }
   };
 
@@ -254,7 +261,7 @@ function DesignerInner() {
         const { projectName: pn } = useNetworkStore.getState();
         const currentId = serverProjectIdRef.current;
         if (!currentId || !pn || pn === "Untitled Network") return;
-        handleSave();
+        handleSave(true);
       }, settings.intervalSec * 1000);
     };
 
