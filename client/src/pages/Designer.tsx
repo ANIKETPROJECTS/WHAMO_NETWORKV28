@@ -210,6 +210,8 @@ function DesignerInner() {
   };
 
   const handleSave = async (silent = false) => {
+    // Read live values from the store — autosave uses a stale closure so we can't trust captured vars
+    const { projectName: liveProjectName } = useNetworkStore.getState();
     const data = buildProjectData();
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -1103,7 +1105,7 @@ function DesignerInner() {
         isGeneratingOut={isGeneratingOut}
         pendingGenerateMode={pendingGenerateMode}
         onClearPendingMode={() => setPendingGenerateMode(null)}
-        onSave={handleSave} 
+        onSave={() => handleSave()} 
         onSaveAs={handleSaveAs}
         onLoad={handleLoadClick} 
         onShowDiagram={() => {
