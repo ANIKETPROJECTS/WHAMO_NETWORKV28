@@ -254,6 +254,7 @@ interface HeaderProps {
   onLoadProject?: (project: any) => void;
   currentProjectId?: string | null;
   isProjectOpen?: boolean;
+  onActivate?: () => void;
 }
 
 export function Header({
@@ -273,6 +274,7 @@ export function Header({
   onLoadProject,
   currentProjectId,
   isProjectOpen = false,
+  onActivate,
 }: HeaderProps) {
   const { user, logout } = useAuth();
   const [showSettings, setShowSettings] = useState(false);
@@ -551,13 +553,13 @@ export function Header({
         <div className="flex items-center gap-0.5 flex-shrink-0">
           <TitleBarBtn imgSrc={addFileIcon} label="New" onClick={() => { clearNetwork(); }} />
           <TitleBarBtn imgSrc={openFolderIcon} label="Open" onClick={onLoad} />
-          <TitleBarBtn imgSrc={floppyDiskIcon} label="Save" onClick={onSave} />
-          <TitleBarBtn imgSrc={floppyDiskIcon} label="Save As" onClick={onSaveAs} />
+          <TitleBarBtn imgSrc={floppyDiskIcon} label="Save" onClick={onSave} disabled={!isProjectOpen} />
+          <TitleBarBtn imgSrc={floppyDiskIcon} label="Save As" onClick={onSaveAs} disabled={!isProjectOpen} />
           <div className="w-px bg-slate-200 mx-1 h-6 flex-shrink-0" />
-          <TitleBarBtn icon={<Undo2 className="w-[22px] h-[22px]" />} label="Undo" onClick={undo} disabled={history.past.length === 0} />
-          <TitleBarBtn icon={<Redo2 className="w-[22px] h-[22px]" />} label="Redo" onClick={redo} disabled={history.future.length === 0} />
+          <TitleBarBtn icon={<Undo2 className="w-[22px] h-[22px]" />} label="Undo" onClick={undo} disabled={!isProjectOpen || history.past.length === 0} />
+          <TitleBarBtn icon={<Redo2 className="w-[22px] h-[22px]" />} label="Redo" onClick={redo} disabled={!isProjectOpen || history.future.length === 0} />
           <div className="w-px bg-slate-200 mx-1 h-6 flex-shrink-0" />
-          <TitleBarBtn imgSrc={arrangeIcon} label="Arrange" onClick={autoArrange} disabled={nodes.length === 0} data-testid="btn-auto-arrange" />
+          <TitleBarBtn imgSrc={arrangeIcon} label="Arrange" onClick={autoArrange} disabled={!isProjectOpen || nodes.length === 0} data-testid="btn-auto-arrange" />
         </div>
 
         {/* CENTER: flex-1 grows to fill space and centers the project name */}
@@ -565,10 +567,11 @@ export function Header({
           <div className="flex items-center gap-2">
             <img src={folderIcon} alt="Folder" className="w-6 h-6 object-contain flex-shrink-0" />
             <input
-              className={`text-sm font-medium text-black bg-transparent border focus:outline-none px-1.5 py-0.5 rounded hover:bg-slate-50 w-[220px] text-center ${projectNameError ? 'border-red-400' : 'border-transparent'}`}
+              className={`text-sm font-medium text-black bg-transparent border focus:outline-none px-1.5 py-0.5 rounded w-[220px] text-center transition-opacity ${projectNameError ? 'border-red-400' : 'border-transparent'} ${!isProjectOpen ? 'opacity-40 cursor-not-allowed pointer-events-none' : 'hover:bg-slate-50'}`}
               value={projectName}
               onChange={(e) => setProjectName(e.target.value)}
               placeholder="Enter project name..."
+              disabled={!isProjectOpen}
             />
             {projectNameError && (
               <div className="flex items-center gap-1 text-[10px] text-yellow-600 font-medium bg-yellow-50 px-2 py-0.5 rounded border border-yellow-200">
@@ -648,29 +651,29 @@ export function Header({
       <div className="flex items-stretch bg-[#f3f5f9] border-b border-slate-200 w-full">
 
         <RibbonGroup label="Insert" flex={8}>
-          <InlineRibbonBtn imgSrc={damIcon} label="Reservoir" onClick={() => addNode("reservoir", { x: 100, y: 100 })} />
-          <InlineRibbonBtn imgSrc={nodeCircleIcon} label="Node" onClick={() => addNode("node", { x: 150, y: 150 })} />
-          <InlineRibbonBtn imgSrc={yIntersectionIcon} label="Junction" onClick={() => addNode("junction", { x: 200, y: 150 })} />
-          <InlineRibbonBtn imgSrc={waterTankIcon} label="Surge Tank" onClick={() => addNode("surgeTank", { x: 250, y: 100 })} />
-          <InlineRibbonBtn imgSrc={windIcon} label="Flow BC" onClick={() => addNode("flowBoundary", { x: 50, y: 150 })} />
+          <InlineRibbonBtn imgSrc={damIcon} label="Reservoir" onClick={() => { if (!isProjectOpen) onActivate?.(); addNode("reservoir", { x: 100, y: 100 }); }} />
+          <InlineRibbonBtn imgSrc={nodeCircleIcon} label="Node" onClick={() => { if (!isProjectOpen) onActivate?.(); addNode("node", { x: 150, y: 150 }); }} />
+          <InlineRibbonBtn imgSrc={yIntersectionIcon} label="Junction" onClick={() => { if (!isProjectOpen) onActivate?.(); addNode("junction", { x: 200, y: 150 }); }} />
+          <InlineRibbonBtn imgSrc={waterTankIcon} label="Surge Tank" onClick={() => { if (!isProjectOpen) onActivate?.(); addNode("surgeTank", { x: 250, y: 100 }); }} />
+          <InlineRibbonBtn imgSrc={windIcon} label="Flow BC" onClick={() => { if (!isProjectOpen) onActivate?.(); addNode("flowBoundary", { x: 50, y: 150 }); }} />
           <InlineRibbonBtn
             imgSrc={waterPumpIcon}
             label="Pump"
-            onClick={() => onSetLinkTool?.(activeLinkTool === 'pump' ? null : 'pump')}
+            onClick={() => { if (!isProjectOpen) onActivate?.(); onSetLinkTool?.(activeLinkTool === 'pump' ? null : 'pump'); }}
             active={activeLinkTool === 'pump'}
             data-testid="ribbon-btn-pump"
           />
           <InlineRibbonBtn
             imgSrc={pipeIcon}
             label="Check Valve"
-            onClick={() => onSetLinkTool?.(activeLinkTool === 'checkValve' ? null : 'checkValve')}
+            onClick={() => { if (!isProjectOpen) onActivate?.(); onSetLinkTool?.(activeLinkTool === 'checkValve' ? null : 'checkValve'); }}
             active={activeLinkTool === 'checkValve'}
             data-testid="ribbon-btn-checkvalve"
           />
           <InlineRibbonBtn
             imgSrc={turbineImgIcon}
             label="Turbine"
-            onClick={() => onSetLinkTool?.(activeLinkTool === 'turbine' ? null : 'turbine')}
+            onClick={() => { if (!isProjectOpen) onActivate?.(); onSetLinkTool?.(activeLinkTool === 'turbine' ? null : 'turbine'); }}
             active={activeLinkTool === 'turbine'}
             data-testid="ribbon-btn-turbine"
           />

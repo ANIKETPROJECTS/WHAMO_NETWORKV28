@@ -1076,6 +1076,7 @@ function DesignerInner() {
         onLoadProject={handleLoadFromServer}
         currentProjectId={serverProjectId}
         isProjectOpen={projectState !== "empty"}
+        onActivate={() => setProjectState("active")}
       />
 
       {/* Projects List Panel */}
