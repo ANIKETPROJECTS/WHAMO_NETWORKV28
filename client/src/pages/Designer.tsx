@@ -1216,7 +1216,7 @@ function DesignerInner() {
                       style={{
                         background: activeLinkTool === 'pump' ? '#f97316'
                           : activeLinkTool === 'checkValve' ? '#8b5cf6'
-                          : '#14b8a6'
+                          : '#16a34a'
                       }}
                     >
                       <span>
@@ -1479,7 +1479,7 @@ function DesignerInner() {
                           { label: 'Junction',    shape: <svg width="16" height="16" viewBox="-2 -2 20 20"><circle cx="8" cy="8" r="8" fill="#F44336" stroke="#B71C1C" strokeWidth="2"/></svg> },
                           { label: 'Pump',        shape: <svg width="16" height="16" viewBox="-2 -2 20 20"><circle cx="8" cy="8" r="8" fill="#00BCD4" stroke="#006064" strokeWidth="2"/></svg> },
                           { label: 'Check Valve', shape: <svg width="16" height="16" viewBox="-2 -2 20 20"><circle cx="8" cy="8" r="8" fill="#37474F" stroke="#102027" strokeWidth="2"/></svg> },
-                          { label: 'Turbine',     shape: <svg width="16" height="16" viewBox="-2 -2 20 20"><circle cx="8" cy="8" r="8" fill="#FF5722" stroke="#BF360C" strokeWidth="2"/></svg> },
+                          { label: 'Turbine',     shape: <svg width="16" height="16" viewBox="-2 -2 20 20"><polygon points="8,0 16,8 8,16 0,8" fill="#16a34a" stroke="#166534" strokeWidth="2"/></svg> },
                           { label: 'Conduit',     shape: <svg width="28" height="12" viewBox="0 0 28 12"><line x1="1" y1="6" x2="22" y2="6" stroke="#555" strokeWidth="1.5"/><polygon points="18,3 28,6 18,9" fill="#555"/></svg> },
                         ].map(({ label, shape }) => (
                           <div key={label} className="flex items-center gap-1.5">
