@@ -153,24 +153,25 @@ export const TAB_COLS: Record<FilterKey, ColDef[]> = {
   ],
   surgeTank: [
     ROW_NUM_COL,
-    { key: '_unit',             header: 'Unit (SI/FPS)',  type: 'dropdown', options: UNIT_OPTIONS, width: 14 },
-    { key: 'label',             header: 'Label',          type: 'text', width: 16 },
-    { key: 'nodeNumber',        header: 'Node #',          type: 'number', width: 10 },
-    { key: 'elevation',         header: 'Elevation',       type: 'number', width: 14 },
-    { key: 'type_st',           header: 'Tank Type',       type: 'dropdown', options: SURGE_TANK_TYPE_OPTIONS, width: 18 },
-    { key: 'tankTop',           header: 'Top Elevation',   type: 'number', width: 14 },
-    { key: 'tankBottom',        header: 'Bot. Elevation',  type: 'number', width: 14 },
-    { key: 'initialWaterLevel', header: 'HTANK',           type: 'number', width: 12 },
-    { key: 'riserDiameter',     header: 'Riser Diameter',  type: 'number', width: 16 },
-    { key: 'riserTop',          header: 'Riser Top',       type: 'number', width: 14 },
-    { key: 'hasShape',          header: 'Use SHAPE',       type: 'dropdown', options: BOOL_OPTIONS, width: 12 },
-    { key: 'diameter',          header: 'Diameter',        type: 'number', width: 14 },
-    { key: 'celerity',          header: 'Wave Speed',      type: 'number', width: 14 },
-    { key: 'friction',          header: 'Friction',        type: 'number', width: 14 },
-    { key: 'hasAddedLoss',      header: 'Added Loss',      type: 'dropdown', options: BOOL_OPTIONS, width: 14 },
-    { key: 'cplus',             header: 'CPLUS',           type: 'number', width: 12 },
-    { key: 'cminus',            header: 'CMINUS',          type: 'number', width: 12 },
-    { key: 'comment',           header: 'Comment',         type: 'text', width: 24 },
+    { key: '_unit',             header: 'Unit (SI/FPS)',         type: 'dropdown', options: UNIT_OPTIONS, width: 14 },
+    { key: 'label',             header: 'Label',                 type: 'text', width: 16 },
+    { key: 'nodeNumber',        header: 'Node #',                type: 'number', width: 10 },
+    { key: 'elevation',         header: 'Elevation',             type: 'number', width: 14 },
+    { key: 'type_st',           header: 'Tank Type',             type: 'dropdown', options: SURGE_TANK_TYPE_OPTIONS, width: 18 },
+    { key: 'tankTop',           header: 'Top Elevation',         type: 'number', width: 14 },
+    { key: 'tankBottom',        header: 'Bot. Elevation',        type: 'number', width: 14 },
+    { key: 'initialWaterLevel', header: 'HTANK',                 type: 'number', width: 12 },
+    { key: 'riserDiameter',     header: 'Riser Diameter',        type: 'number', width: 16 },
+    { key: 'riserTop',          header: 'Riser Top',             type: 'number', width: 14 },
+    { key: 'hasShape',          header: 'Use SHAPE',             type: 'dropdown', options: BOOL_OPTIONS, width: 12 },
+    { key: 'diameter',          header: 'Diameter',              type: 'number', width: 14 },
+    { key: 'celerity',          header: 'Wave Speed',            type: 'number', width: 14 },
+    { key: 'friction',          header: 'Friction',              type: 'number', width: 14 },
+    { key: 'hasAddedLoss',      header: 'Added Loss',            type: 'dropdown', options: BOOL_OPTIONS, width: 14 },
+    { key: 'cplus',             header: 'CPLUS',                 type: 'number', width: 12 },
+    { key: 'cminus',            header: 'CMINUS',                type: 'number', width: 12 },
+    { key: '_shapePairs',       header: 'Shape Pairs (e:a; ...)', type: 'text',   width: 44 },
+    { key: 'comment',           header: 'Comment',               type: 'text', width: 24 },
   ],
   flowBoundary: [
     ROW_NUM_COL,
@@ -300,14 +301,13 @@ function getRowValue(
 
   // Reservoir H Schedule: hScheduleNumber defaults to 1 and is always numeric
   if (col.key === 'hScheduleNumber') {
-    if (data.mode !== 'schedule') return ''; // leave blank so changing mode in Excel gives a clean cell
+    if (data.mode !== 'schedule') return 'NA';
     return Number(data.hScheduleNumber ?? 1);
   }
 
   // T/H Pairs (reservoir H Schedule mode) — editable format: "time:head; time:head; ..."
   if (col.key === '_thPairs') {
-    if (data.mode !== 'schedule') return ''; // leave blank so changing mode in Excel gives a clean cell
-    // Coerce to number to handle string-stored values from FlexTable text inputs
+    if (data.mode !== 'schedule') return 'NA';
     const schedNum = Number(data.hScheduleNumber ?? 1);
     const sched = hSchedules?.find(s => Number(s.number) === schedNum);
     if (!sched || sched.points.length === 0) return '';
@@ -322,8 +322,34 @@ function getRowValue(
     return points.map(p => `${p.time}:${p.flow}`).join('; ');
   }
 
-  // Conditionally locked cells: leave blank (amber background is the visual indicator)
-  if (isConditionallyLocked(col, data)) return '';
+  // Shape Pairs (surge tank, only when Use SHAPE = true) — editable format: "e:a; e:a; ..."
+  if (col.key === '_shapePairs') {
+    const hasShape = data.hasShape === true || data.hasShape === 'true';
+    if (!hasShape) return 'NA';
+    const pairs: any[] = (data.shape as any[]) ?? [];
+    if (!pairs.length) return '';
+    return pairs.map(p => `${p.e}:${p.a}`).join('; ');
+  }
+
+  // ── NA for surge-tank fields that depend on tank type ──────────────────────
+  if (subType === 'surgeTank') {
+    const stType = String(data.type_st || 'SIMPLE');
+    // HTANK: only applicable for AIRTANK or DIFFERENTIAL
+    if (col.key === 'initialWaterLevel' && stType !== 'AIRTANK' && stType !== 'DIFFERENTIAL') return 'NA';
+    // Riser Diameter, Riser Top: only applicable for DIFFERENTIAL
+    if ((col.key === 'riserDiameter' || col.key === 'riserTop') && stType !== 'DIFFERENTIAL') return 'NA';
+    // Diameter: NA when Use SHAPE is enabled (shape data replaces uniform diameter)
+    if (col.key === 'diameter' && (data.hasShape === true || data.hasShape === 'true')) return 'NA';
+  }
+
+  // ── NA for CPLUS / CMINUS when Added Loss is disabled ──────────────────────
+  if (col.key === 'cplus' || col.key === 'cminus') {
+    const hasLoss = data.hasAddedLoss === true || data.hasAddedLoss === 'true';
+    if (!hasLoss) return 'NA';
+  }
+
+  // Conditionally locked cells (e.g. reservoir fields locked by BC Mode)
+  if (isConditionallyLocked(col, data)) return 'NA';
 
   const val = data[col.key];
 
@@ -938,6 +964,21 @@ function _parseExcelDataRow(
         if (!isNaN(t) && !isNaN(f)) points.push({ time: t, flow: f });
       });
       if (points.length > 0) qScheduleUpdates.push({ scheduleNumber: Number(schedNum), points });
+      return;
+    }
+
+    if (col.key === '_shapePairs') {
+      const points: { e: number; a: number }[] = [];
+      strVal.split(';').forEach(segment => {
+        const trimmed = segment.trim();
+        if (!trimmed) return;
+        const colonIdx = trimmed.indexOf(':');
+        if (colonIdx < 0) return;
+        const e = parseFloat(trimmed.slice(0, colonIdx).trim());
+        const a = parseFloat(trimmed.slice(colonIdx + 1).trim());
+        if (!isNaN(e) && !isNaN(a)) points.push({ e, a });
+      });
+      if (points.length > 0) update.shape = points;
       return;
     }
 
