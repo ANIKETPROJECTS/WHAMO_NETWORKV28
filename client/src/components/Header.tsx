@@ -974,39 +974,6 @@ export function Header({
         </div>
       )}
 
-      {/* ── HELP DIALOG ── */}
-      <Dialog open={showHelp} onOpenChange={setShowHelp}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto text-black">
-          <DialogHeader>
-            <DialogTitle>How to use this Software</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <section>
-              <h4 className="font-semibold text-lg">Introduction</h4>
-              <p className="text-sm text-muted-foreground">This hydraulic transient analysis software allows you to design and simulate water networks, analyzing pressure surges and flow changes over time.</p>
-            </section>
-            <section>
-              <h4 className="font-semibold text-base">Designing your Network</h4>
-              <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
-                <li>Use the ribbon Insert group to add Reservoirs, Nodes, Junctions, Surge Tanks, and Flow Boundaries.</li>
-                <li>Click and drag from a blue dot on one node to another to create a Conduit (pipe).</li>
-                <li>Double-click on any element to edit its properties (Elevation, Length, Diameter, etc.) in the sidebar.</li>
-              </ul>
-            </section>
-            <section>
-              <h4 className="font-semibold text-base">Simulation &amp; Output</h4>
-              <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
-                <li>Set your simulation time and steps in Analysis &gt; Comp. Params.</li>
-                <li>Configure which variables you want to track in Analysis &gt; Output Req.</li>
-                <li>Use Generate .INP to get the input file or Generate .OUT to run the simulation and get results.</li>
-              </ul>
-            </section>
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setShowHelp(false)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
       {/* ── OUTPUT REQUESTS SIDEBAR ── */}
       {showOutputDialog && (
         <div className="fixed inset-0 z-50 pointer-events-none">

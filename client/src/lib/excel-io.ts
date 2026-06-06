@@ -314,7 +314,28 @@ function getRowValue(
   if (isConditionallyLocked(col, data)) return '';
 
   const val = data[col.key];
-  if (val === undefined || val === null) return '';
+
+  // For undefined/null values, apply field-specific defaults so dropdown cells
+  // are never blank for fields that have a known default in the UI.
+  if (val === undefined || val === null) {
+    const FIELD_DEFAULTS: Record<string, string | boolean> = {
+      type_st:            'SIMPLE',
+      hasAddedLoss:       false,
+      hasShape:           false,
+      includeNumSegments: false,
+      variable:           false,
+      pumpStatus:         'ACTIVE',
+      valveStatus:        'OPEN',
+      operationMode:      'TURBINE',
+    };
+    if (col.key in FIELD_DEFAULTS) {
+      const def = FIELD_DEFAULTS[col.key];
+      if (typeof def === 'boolean') return def ? 'true' : 'false';
+      return def;
+    }
+    return '';
+  }
+
   if (typeof val === 'boolean') return val ? 'true' : 'false';
   return val as string | number;
 }
