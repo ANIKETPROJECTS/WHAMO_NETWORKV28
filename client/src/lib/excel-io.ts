@@ -174,11 +174,12 @@ export const TAB_COLS: Record<FilterKey, ColDef[]> = {
   ],
   flowBoundary: [
     ROW_NUM_COL,
-    { key: '_unit',          header: 'Unit (SI/FPS)', type: 'dropdown', options: UNIT_OPTIONS, width: 14 },
-    { key: 'label',          header: 'Label',         type: 'text', width: 16 },
-    { key: 'nodeNumber',     header: 'Node #',         type: 'number', width: 10 },
-    { key: 'scheduleNumber', header: 'Q Sched #',      type: 'number', width: 12 },
-    { key: 'comment',        header: 'Comment',        type: 'text', width: 24 },
+    { key: '_unit',          header: 'Unit (SI/FPS)',              type: 'dropdown', options: UNIT_OPTIONS, width: 14 },
+    { key: 'label',          header: 'Label',                      type: 'text', width: 16 },
+    { key: 'nodeNumber',     header: 'Node #',                     type: 'number', width: 10 },
+    { key: 'scheduleNumber', header: 'Q Sched #',                  type: 'number', width: 12 },
+    { key: '_qPairs',        header: 'Q Schedule (time:flow; ...)', type: 'text',   width: 44 },
+    { key: 'comment',        header: 'Comment',                    type: 'text', width: 24 },
   ],
   pump: [
     ROW_NUM_COL,
@@ -270,6 +271,8 @@ function isConditionallyLocked(col: ColDef, data: Record<string, any>): boolean 
 
 // ─── Cell value extractor ─────────────────────────────────────────────────────
 
+type QSchedules = Record<number, { time: number; flow: number | string }[]>;
+
 function getRowValue(
   col: ColDef,
   data: Record<string, any>,
@@ -277,6 +280,7 @@ function getRowValue(
   globalUnit: string,
   rowIdx: number,
   hSchedules?: HSchedule[],
+  qSchedules?: QSchedules,
 ): string | number {
   if (col.key === '_rowNum') return rowIdx + 1;
   if (col.key === '_type') {
@@ -308,6 +312,14 @@ function getRowValue(
     const sched = hSchedules?.find(s => Number(s.number) === schedNum);
     if (!sched || sched.points.length === 0) return '';
     return sched.points.map(p => `${p.time}:${p.head}`).join('; ');
+  }
+
+  // Q Schedule pairs (flow boundary) — editable format: "time:flow; time:flow; ..."
+  if (col.key === '_qPairs') {
+    const schedNum = Number(data.scheduleNumber ?? 1);
+    const points: any[] = qSchedules?.[schedNum] ?? (data.schedulePoints as any[]) ?? [];
+    if (!points.length) return '';
+    return points.map(p => `${p.time}:${p.flow}`).join('; ');
   }
 
   // Conditionally locked cells: leave blank (amber background is the visual indicator)
@@ -400,6 +412,7 @@ async function _addWorksheetToWb(
   tabLabel: string,
   hSchedules?: HSchedule[],
   listSheetSuffix = '',
+  qSchedules?: QSchedules,
 ): Promise<void> {
   if (!TAB_COLS[filter]) throw new Error(`Unknown filter: ${filter}`);
   // Strip read-only columns — informational only, not needed in the downloaded file
@@ -469,7 +482,7 @@ async function _addWorksheetToWb(
   rows.forEach((row, rowIdx) => {
     const isEven = rowIdx % 2 === 0;
     const values: (string | number)[] = cols.map(col =>
-      getRowValue(col, row.data, row.subType, globalUnit, rowIdx, hSchedules)
+      getRowValue(col, row.data, row.subType, globalUnit, rowIdx, hSchedules, qSchedules)
     );
     const excelRow = ws.addRow(values);
 
@@ -746,18 +759,19 @@ async function _addWorksheetToWb(
 
 }
 
-// ─── Public: single-tab export (unchanged behaviour) ─────────────────────────
+// ─── Public: single-tab export ───────────────────────────────────────────────
 export async function exportTabToExcel(
   filter: FilterKey,
   rows: ExportRow[],
   globalUnit: string,
   tabLabel: string,
   hSchedules?: HSchedule[],
+  qSchedules?: QSchedules,
 ): Promise<void> {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'WHAMO Network Designer';
   wb.created = new Date();
-  await _addWorksheetToWb(wb, filter, rows, globalUnit, tabLabel, hSchedules);
+  await _addWorksheetToWb(wb, filter, rows, globalUnit, tabLabel, hSchedules, '', qSchedules);
   const buffer = await wb.xlsx.writeBuffer();
   const blob = new Blob([buffer], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -794,6 +808,7 @@ export async function exportAllSheetsToExcel(
   globalUnit: string,
   projectName: string,
   hSchedules: HSchedule[] = [],
+  qSchedules?: QSchedules,
 ): Promise<void> {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'WHAMO Network Designer';
@@ -805,7 +820,7 @@ export async function exportAllSheetsToExcel(
       : allRows.filter(r => r.subType === filter);
     if (rows.length === 0) continue;
     // Use per-sheet suffix so each sheet's hidden _Lists doesn't clash
-    await _addWorksheetToWb(wb, filter, rows, globalUnit, label, hSchedules, `_${label.replace(/\s/g, '')}`);
+    await _addWorksheetToWb(wb, filter, rows, globalUnit, label, hSchedules, `_${label.replace(/\s/g, '')}`, qSchedules);
   }
 
   const safeName = (projectName || 'network').replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -838,6 +853,7 @@ export interface ImportSheetSummary {
 export interface ImportAllResult {
   updates: ImportUpdate[];
   hScheduleUpdates: HScheduleUpdate[];
+  qScheduleUpdates: QScheduleUpdate[];
   summary: ImportSheetSummary[];
   totalMatched: number;
   totalSkipped: number;
@@ -848,12 +864,126 @@ export interface HScheduleUpdate {
   points: { time: number; head: number }[];
 }
 
+export interface QScheduleUpdate {
+  scheduleNumber: number;
+  points: { time: number; flow: number }[];
+}
+
+// ─── Shared helper: parse one Excel data row into updates ────────────────────
+function _parseExcelDataRow(
+  cols: ColDef[],
+  excelRow: ExcelJS.Row,
+  headerMap: Record<string, number>,
+  existingRow: ExportRow,
+  globalUnit: string,
+  hScheduleUpdates: HScheduleUpdate[],
+  qScheduleUpdates: QScheduleUpdate[],
+): Record<string, any> {
+  const update: Record<string, any> = {};
+
+  cols.forEach(col => {
+    if (col.readOnly) return;
+    const colNum = headerMap[col.header];
+    if (!colNum) return;
+    const cell = excelRow.getCell(colNum);
+    const rawVal = cell.value;
+    if (rawVal === null || rawVal === undefined || rawVal === '') return;
+    const effectiveVal = (rawVal !== null && typeof rawVal === 'object' && 'result' in (rawVal as object))
+      ? (rawVal as { formula: string; result: any }).result
+      : rawVal;
+    if (effectiveVal === null || effectiveVal === undefined || effectiveVal === '') return;
+    const strVal = String(effectiveVal).trim();
+    if (!strVal) return;
+
+    if (strVal === 'NA' || strVal.startsWith('NA —') || strVal.startsWith('NA -')) return;
+
+    if (col.key === '_unit') {
+      if (strVal === 'SI' || strVal === 'FPS') update.unit = strVal;
+      return;
+    }
+
+    if (col.key === 'mode') {
+      update.mode = displayToMode(strVal);
+      return;
+    }
+
+    if (col.key === '_thPairs') {
+      const effectiveMode = update.mode ?? existingRow.data.mode ?? 'fixed';
+      if (effectiveMode !== 'schedule') return;
+      const schedNum = update.hScheduleNumber ?? existingRow.data.hScheduleNumber ?? 1;
+      const points: { time: number; head: number }[] = [];
+      strVal.split(';').forEach(segment => {
+        const trimmed = segment.trim();
+        if (!trimmed) return;
+        const colonIdx = trimmed.indexOf(':');
+        if (colonIdx < 0) return;
+        const t = parseFloat(trimmed.slice(0, colonIdx).trim());
+        const h = parseFloat(trimmed.slice(colonIdx + 1).trim());
+        if (!isNaN(t) && !isNaN(h)) points.push({ time: t, head: h });
+      });
+      if (points.length > 0) hScheduleUpdates.push({ scheduleNumber: Number(schedNum), points });
+      return;
+    }
+
+    if (col.key === '_qPairs') {
+      const schedNum = update.scheduleNumber ?? existingRow.data.scheduleNumber ?? 1;
+      const points: { time: number; flow: number }[] = [];
+      strVal.split(';').forEach(segment => {
+        const trimmed = segment.trim();
+        if (!trimmed) return;
+        const colonIdx = trimmed.indexOf(':');
+        if (colonIdx < 0) return;
+        const t = parseFloat(trimmed.slice(0, colonIdx).trim());
+        const f = parseFloat(trimmed.slice(colonIdx + 1).trim());
+        if (!isNaN(t) && !isNaN(f)) points.push({ time: t, flow: f });
+      });
+      if (points.length > 0) qScheduleUpdates.push({ scheduleNumber: Number(schedNum), points });
+      return;
+    }
+
+    if (col.key === '_materialLabel') {
+      const matId = materialIdByLabel(strVal);
+      if (matId !== undefined) {
+        update.materialId = matId;
+        const m = PIPE_MATERIALS_BY_ID[matId];
+        if (m) {
+          update.manningsN = m.manningsN;
+          const unit: string = (existingRow.data.unit as string) || globalUnit;
+          const eVal = unit === 'SI' ? m.youngsModulus_Pa : m.youngsModulus_psi;
+          if (eVal > 0) update.pipeE = eVal;
+        }
+      } else {
+        update.materialId = '';
+      }
+      return;
+    }
+
+    if (col.type === 'number') {
+      const num = parseFloat(strVal);
+      if (!isNaN(num)) update[col.key] = num;
+      return;
+    }
+
+    if (col.type === 'dropdown' || col.type === 'text') {
+      if (col.options && (col.options[0] === 'true' || col.options[1] === 'false')) {
+        update[col.key] = strVal === 'true';
+        return;
+      }
+      // Label is allowed when it comes from a label-changed import row
+      update[col.key] = strVal;
+      return;
+    }
+  });
+
+  return update;
+}
+
 export async function importTabFromExcel(
   filter: FilterKey,
   rows: ExportRow[],
   globalUnit: string,
   file: File,
-): Promise<{ updates: ImportUpdate[]; hScheduleUpdates: HScheduleUpdate[]; skipped: number; matched: number }> {
+): Promise<{ updates: ImportUpdate[]; hScheduleUpdates: HScheduleUpdate[]; qScheduleUpdates: QScheduleUpdate[]; skipped: number; matched: number }> {
   const cols = TAB_COLS[filter];
   if (!cols) throw new Error(`Unknown filter: ${filter}`);
 
@@ -861,13 +991,11 @@ export async function importTabFromExcel(
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(buffer);
 
-  // Find the first visible, non-legend, non-list sheet
   const ws = wb.worksheets.find(
     s => !s.name.startsWith('_') && !s.name.toLowerCase().includes('legend')
   );
   if (!ws) throw new Error('No data sheet found in workbook.');
 
-  // Read header row (row 1) to build column index map
   const headerRow = ws.getRow(1);
   const headerMap: Record<string, number> = {};
   headerRow.eachCell((cell, colNum) => {
@@ -875,7 +1003,7 @@ export async function importTabFromExcel(
     if (val) headerMap[val] = colNum;
   });
 
-  // Build label → ExportRow lookup
+  // Primary lookup: by Label; secondary: by row position (0-based data rows)
   const labelLookup = new Map<string, ExportRow>();
   for (const row of rows) {
     const lbl = String(row.data.label ?? '').trim();
@@ -884,127 +1012,42 @@ export async function importTabFromExcel(
 
   const updates: ImportUpdate[] = [];
   const hScheduleUpdates: HScheduleUpdate[] = [];
+  const qScheduleUpdates: QScheduleUpdate[] = [];
   let skipped = 0;
   let matched = 0;
-
-  const labelHeader = 'Label';
-  const labelColNum = headerMap[labelHeader];
+  const labelColNum = headerMap['Label'];
+  let dataRowIdx = 0;
 
   ws.eachRow((excelRow, rowNum) => {
-    // Skip header row (1) and hint row (2)
-    if (rowNum <= 2) return;
+    if (rowNum <= 2) return; // skip header and hint rows
 
     const labelCell = labelColNum ? excelRow.getCell(labelColNum) : null;
     const labelVal = String(labelCell?.value ?? '').trim();
-    if (!labelVal) { skipped++; return; }
 
-    const existingRow = labelLookup.get(labelVal);
+    // Match by label first; fall back to row position
+    let existingRow = labelVal ? labelLookup.get(labelVal) : undefined;
+    if (!existingRow) existingRow = rows[dataRowIdx];
+    dataRowIdx++;
+
     if (!existingRow) { skipped++; return; }
 
     matched++;
-    const update: Record<string, any> = {};
-
-    cols.forEach(col => {
-      // Skip read-only cols and label (used only for matching)
-      if (col.readOnly || col.key === 'label') return;
-      const colNum = headerMap[col.header];
-      if (!colNum) return;
-      const cell = excelRow.getCell(colNum);
-      const rawVal = cell.value;
-      if (rawVal === null || rawVal === undefined || rawVal === '') return;
-      // ExcelJS returns formula cells as { formula, result } — extract the computed result
-      const effectiveVal = (rawVal !== null && typeof rawVal === 'object' && 'result' in (rawVal as object))
-        ? (rawVal as { formula: string; result: any }).result
-        : rawVal;
-      if (effectiveVal === null || effectiveVal === undefined || effectiveVal === '') return;
-      const strVal = String(effectiveVal).trim();
-      if (!strVal) return;
-
-      // Skip cells that contain the "NA" sentinel — they are conditionally locked
-      if (strVal === 'NA' || strVal.startsWith('NA —') || strVal.startsWith('NA -')) return;
-
-      if (col.key === '_unit') {
-        if (strVal === 'SI' || strVal === 'FPS') update.unit = strVal;
-        return;
-      }
-
-      // BC Mode: translate Excel display label back to stored value
-      if (col.key === 'mode') {
-        update.mode = displayToMode(strVal);
-        return;
-      }
-
-      // T/H Pairs: parse "time:head; time:head; ..." and collect as hSchedule update
-      if (col.key === '_thPairs') {
-        const effectiveMode = update.mode ?? existingRow.data.mode ?? 'fixed';
-        if (effectiveMode !== 'schedule') return;
-        const schedNum = update.hScheduleNumber ?? existingRow.data.hScheduleNumber ?? 1;
-        const points: { time: number; head: number }[] = [];
-        strVal.split(';').forEach(segment => {
-          const trimmed = segment.trim();
-          if (!trimmed) return;
-          const colonIdx = trimmed.indexOf(':');
-          if (colonIdx < 0) return;
-          const t = parseFloat(trimmed.slice(0, colonIdx).trim());
-          const h = parseFloat(trimmed.slice(colonIdx + 1).trim());
-          if (!isNaN(t) && !isNaN(h)) points.push({ time: t, head: h });
-        });
-        if (points.length > 0) {
-          hScheduleUpdates.push({ scheduleNumber: Number(schedNum), points });
-        }
-        return;
-      }
-
-      if (col.key === '_materialLabel') {
-        const matId = materialIdByLabel(strVal);
-        if (matId !== undefined) {
-          update.materialId = matId;
-          const m = PIPE_MATERIALS_BY_ID[matId];
-          if (m) {
-            update.manningsN = m.manningsN;
-            const unit: string = (existingRow.data.unit as string) || globalUnit;
-            const eVal = unit === 'SI' ? m.youngsModulus_Pa : m.youngsModulus_psi;
-            if (eVal > 0) update.pipeE = eVal;
-          }
-        } else {
-          update.materialId = '';
-        }
-        return;
-      }
-
-      if (col.type === 'number') {
-        const num = parseFloat(strVal);
-        if (!isNaN(num)) update[col.key] = num;
-        return;
-      }
-
-      if (col.type === 'dropdown' || col.type === 'text') {
-        if (col.options && (col.options[0] === 'true' || col.options[1] === 'false')) {
-          update[col.key] = strVal === 'true';
-          return;
-        }
-        update[col.key] = strVal;
-        return;
-      }
-    });
+    const update = _parseExcelDataRow(cols, excelRow, headerMap, existingRow, globalUnit, hScheduleUpdates, qScheduleUpdates);
 
     // ── Reservoir conditional field cleanup ──
-    // Determine the effective mode (newly imported or existing in app),
-    // then remove fields that belong to the inactive mode so we never
-    // accidentally overwrite a value that should stay untouched.
     if (existingRow.subType === 'reservoir') {
       const effectiveMode = update.mode ?? existingRow.data.mode ?? 'fixed';
       if (effectiveMode === 'schedule') {
-        delete update.reservoirElevation; // only used in Fixed Elevation mode
+        delete update.reservoirElevation;
       } else {
-        delete update.hScheduleNumber;    // only used in H Schedule mode
+        delete update.hScheduleNumber;
       }
     }
 
     updates.push({ id: existingRow.id, kind: existingRow.kind, data: update });
   });
 
-  return { updates, hScheduleUpdates, skipped, matched };
+  return { updates, hScheduleUpdates, qScheduleUpdates, skipped, matched };
 }
 
 // ─── Multi-sheet import ───────────────────────────────────────────────────────
@@ -1021,12 +1064,12 @@ export async function importAllSheetsFromExcel(
 
   const allUpdates: ImportUpdate[] = [];
   const allHScheduleUpdates: HScheduleUpdate[] = [];
+  const allQScheduleUpdates: QScheduleUpdate[] = [];
   const summary: ImportSheetSummary[] = [];
   let totalMatched = 0;
   let totalSkipped = 0;
 
   for (const ws of wb.worksheets) {
-    // Skip hidden or list helper sheets
     if (ws.name.startsWith('_')) continue;
     const filter = SHEET_LABEL_TO_FILTER[ws.name];
     if (!filter) continue;
@@ -1034,14 +1077,12 @@ export async function importAllSheetsFromExcel(
     const cols = TAB_COLS[filter];
     if (!cols) continue;
 
-    // Determine which rows belong to this filter
     const filterRows: ExportRow[] = filter === 'node'
       ? allRows.filter(r => r.subType === 'node')
       : allRows.filter(r => r.subType === filter);
 
     if (filterRows.length === 0) continue;
 
-    // Read header row
     const headerRow = ws.getRow(1);
     const headerMap: Record<string, number> = {};
     headerRow.eachCell((cell, colNum) => {
@@ -1049,7 +1090,7 @@ export async function importAllSheetsFromExcel(
       if (val) headerMap[val] = colNum;
     });
 
-    // Label lookup
+    // Primary: label lookup; secondary: row position
     const labelLookup = new Map<string, ExportRow>();
     for (const row of filterRows) {
       const lbl = String(row.data.label ?? '').trim();
@@ -1060,85 +1101,23 @@ export async function importAllSheetsFromExcel(
     let sheetSkipped = 0;
     const sheetUpdates: ImportUpdate[] = [];
     const sheetHScheduleUpdates: HScheduleUpdate[] = [];
+    const sheetQScheduleUpdates: QScheduleUpdate[] = [];
+    const labelColIndex = headerMap['Label'] ?? headerMap['label'];
+    let dataRowIdx = 0;
 
-    // Process each data row (row 3 onwards — row 2 is the hint row)
     for (let rowNum = 3; rowNum <= ws.rowCount; rowNum++) {
       const wsRow = ws.getRow(rowNum);
-      // Find the Label column index
-      const labelColIndex = headerMap['Label'] ?? headerMap['label'];
-      if (!labelColIndex) continue;
-      const labelCell = wsRow.getCell(labelColIndex);
-      const labelVal = String(labelCell?.value ?? '').trim();
-      if (!labelVal) continue;
+      const labelVal = labelColIndex ? String(wsRow.getCell(labelColIndex)?.value ?? '').trim() : '';
 
-      const existingRow = labelLookup.get(labelVal);
+      let existingRow = labelVal ? labelLookup.get(labelVal) : undefined;
+      if (!existingRow) existingRow = filterRows[dataRowIdx];
+      dataRowIdx++;
+
       if (!existingRow) { sheetSkipped++; continue; }
 
-      const update: Record<string, any> = {};
       sheetMatched++;
+      const update = _parseExcelDataRow(cols, wsRow, headerMap, existingRow, globalUnit, sheetHScheduleUpdates, sheetQScheduleUpdates);
 
-      cols.forEach(col => {
-        if (col.readOnly) return;
-        const colIdx = headerMap[col.header];
-        if (!colIdx) return;
-        const cell = wsRow.getCell(colIdx);
-        const raw = cell?.value;
-        const strVal = raw === null || raw === undefined ? '' : String(raw).trim();
-        if (strVal === '') return;
-
-        if (col.key === '_thPairs') {
-          const effectiveMode = update.mode ?? existingRow.data.mode ?? 'fixed';
-          if (effectiveMode !== 'schedule') return;
-          const schedNum = update.hScheduleNumber ?? existingRow.data.hScheduleNumber ?? 1;
-          const points: { time: number; head: number }[] = [];
-          strVal.split(';').forEach(segment => {
-            const trimmed = segment.trim();
-            if (!trimmed) return;
-            const colonIdx = trimmed.indexOf(':');
-            if (colonIdx < 0) return;
-            const t = parseFloat(trimmed.slice(0, colonIdx).trim());
-            const h = parseFloat(trimmed.slice(colonIdx + 1).trim());
-            if (!isNaN(t) && !isNaN(h)) points.push({ time: t, head: h });
-          });
-          if (points.length > 0) sheetHScheduleUpdates.push({ scheduleNumber: Number(schedNum), points });
-          return;
-        }
-
-        if (col.key === '_materialLabel') {
-          // Use dynamic import to avoid circular deps; materialIdByLabel is local
-          const matId = materialIdByLabel(strVal);
-          if (matId !== undefined) {
-            update.materialId = matId;
-            const m = PIPE_MATERIALS_BY_ID[matId];
-            if (m) {
-              update.manningsN = m.manningsN;
-              const unit = (existingRow.data.unit as string) || globalUnit;
-              const eVal = unit === 'SI' ? m.youngsModulus_Pa : m.youngsModulus_psi;
-              if (eVal > 0) update.pipeE = eVal;
-            }
-          } else {
-            update.materialId = '';
-          }
-          return;
-        }
-
-        if (col.type === 'number') {
-          const num = parseFloat(strVal);
-          if (!isNaN(num)) update[col.key] = num;
-          return;
-        }
-
-        if (col.type === 'dropdown' || col.type === 'text') {
-          if (col.options && (col.options[0] === 'true' || col.options[1] === 'false')) {
-            update[col.key] = strVal === 'true';
-            return;
-          }
-          update[col.key] = strVal;
-          return;
-        }
-      });
-
-      // Reservoir mode cleanup
       if (existingRow.subType === 'reservoir') {
         const effectiveMode = update.mode ?? existingRow.data.mode ?? 'fixed';
         if (effectiveMode === 'schedule') {
@@ -1153,10 +1132,11 @@ export async function importAllSheetsFromExcel(
 
     allUpdates.push(...sheetUpdates);
     allHScheduleUpdates.push(...sheetHScheduleUpdates);
+    allQScheduleUpdates.push(...sheetQScheduleUpdates);
     summary.push({ label: ws.name, matched: sheetMatched, skipped: sheetSkipped });
     totalMatched += sheetMatched;
     totalSkipped += sheetSkipped;
   }
 
-  return { updates: allUpdates, hScheduleUpdates: allHScheduleUpdates, summary, totalMatched, totalSkipped };
+  return { updates: allUpdates, hScheduleUpdates: allHScheduleUpdates, qScheduleUpdates: allQScheduleUpdates, summary, totalMatched, totalSkipped };
 }

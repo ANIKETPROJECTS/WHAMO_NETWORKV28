@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 import { X, Check, Plus, Trash2, Download, Upload } from 'lucide-react';
 import {
   exportTabToExcel, importTabFromExcel, exportAllSheetsToExcel, importAllSheetsFromExcel,
-  TAB_COLS, type FilterKey as ExcelFilterKey, type ExportRow, type ImportSheetSummary,
+  TAB_COLS, type FilterKey as ExcelFilterKey, type ExportRow, type ImportSheetSummary, type QScheduleUpdate,
 } from '@/lib/excel-io';
 
 interface FlexTableProps {
@@ -1359,7 +1359,7 @@ export function FlexTable({ open, onClose }: FlexTableProps) {
           id: r.id, kind: r.kind, subType: r.subType, data: r.data,
         }));
         const { projectName } = useNetworkStore.getState();
-        await exportAllSheetsToExcel(exportRows, globalUnit, projectName, hSchedules ?? []);
+        await exportAllSheetsToExcel(exportRows, globalUnit, projectName, hSchedules ?? [], qSchedules ?? {});
         toast({ title: 'Export complete', description: 'All element types exported as a multi-sheet workbook.' });
       } else {
         const excelFilter = activeFilter as ExcelFilterKey;
@@ -1373,7 +1373,7 @@ export function FlexTable({ open, onClose }: FlexTableProps) {
         const exportRows: ExportRow[] = rowsToExport.map(r => ({
           id: r.id, kind: r.kind, subType: r.subType, data: r.data,
         }));
-        await exportTabToExcel(excelFilter, exportRows, globalUnit, tabLabel, hSchedules ?? []);
+        await exportTabToExcel(excelFilter, exportRows, globalUnit, tabLabel, hSchedules ?? [], qSchedules ?? {});
         toast({ title: 'Export complete', description: `${tabLabel} tab exported as Excel.` });
       }
     } catch (err: any) {
@@ -1393,7 +1393,7 @@ export function FlexTable({ open, onClose }: FlexTableProps) {
         const allExportRows: ExportRow[] = allRows.map(r => ({
           id: r.id, kind: r.kind, subType: r.subType, data: r.data,
         }));
-        const { updates, hScheduleUpdates, summary, totalMatched, totalSkipped } =
+        const { updates, hScheduleUpdates, qScheduleUpdates, summary, totalMatched, totalSkipped } =
           await importAllSheetsFromExcel(allExportRows, globalUnit, file);
         updates.forEach(upd => {
           if (upd.kind === 'edge') updateEdgeData(upd.id, upd.data);
@@ -1402,6 +1402,9 @@ export function FlexTable({ open, onClose }: FlexTableProps) {
         hScheduleUpdates.forEach(upd => {
           addHSchedule(upd.scheduleNumber);
           updateHSchedule(upd.scheduleNumber, upd.points);
+        });
+        (qScheduleUpdates as QScheduleUpdate[]).forEach(upd => {
+          updateQSchedule(upd.scheduleNumber, upd.points);
         });
         if (summary.length > 0) {
           setImportSummary(summary);
@@ -1421,7 +1424,7 @@ export function FlexTable({ open, onClose }: FlexTableProps) {
         const exportRows: ExportRow[] = rowsToImport.map(r => ({
           id: r.id, kind: r.kind, subType: r.subType, data: r.data,
         }));
-        const { updates, hScheduleUpdates, skipped, matched } = await importTabFromExcel(
+        const { updates, hScheduleUpdates, qScheduleUpdates, skipped, matched } = await importTabFromExcel(
           excelFilter, exportRows, globalUnit, file
         );
         updates.forEach(upd => {
@@ -1431,6 +1434,9 @@ export function FlexTable({ open, onClose }: FlexTableProps) {
         hScheduleUpdates.forEach(upd => {
           addHSchedule(upd.scheduleNumber);
           updateHSchedule(upd.scheduleNumber, upd.points);
+        });
+        (qScheduleUpdates as QScheduleUpdate[]).forEach(upd => {
+          updateQSchedule(upd.scheduleNumber, upd.points);
         });
         toast({ title: 'Import complete', description: `${matched} row${matched !== 1 ? 's' : ''} updated, ${skipped} skipped.` });
       }
