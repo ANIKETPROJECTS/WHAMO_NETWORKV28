@@ -56,3 +56,7 @@ waitForPort = 5000
 [agent]
 expertMode = true
 stack = "FULLSTACK_JS"
+
+[userenv]
+
+[userenv.shared]
