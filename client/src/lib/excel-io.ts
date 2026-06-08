@@ -178,6 +178,7 @@ export const TAB_COLS: Record<FilterKey, ColDef[]> = {
     { key: '_unit',          header: 'Unit (SI/FPS)',              type: 'dropdown', options: UNIT_OPTIONS, width: 14 },
     { key: 'label',          header: 'Label',                      type: 'text', width: 16 },
     { key: 'nodeNumber',     header: 'Node #',                     type: 'number', width: 10 },
+    { key: 'elevation',      header: 'Elevation',                  type: 'number', width: 14 },
     { key: 'scheduleNumber', header: 'Q Sched #',                  type: 'number', width: 12 },
     { key: '_qPairs',        header: 'Q Schedule (time:flow; ...)', type: 'text',   width: 44 },
     { key: 'comment',        header: 'Comment',                    type: 'text', width: 24 },
@@ -311,8 +312,8 @@ function getRowValue(
   if (col.key === 'nodeNumber' && isEdgeSub) return 'NA';
   // Length — conduit only (nodes and dummy pipes have no length)
   if (col.key === 'length' && (!isEdgeSub || isDummySub)) return 'NA';
-  // Elevation — not applicable for pipe elements or flow boundaries
-  if (col.key === 'elevation' && (isEdgeSub || isFlowSub)) return 'NA';
+  // Elevation — not applicable for pipe elements (edges); flow boundaries now include elevation
+  if (col.key === 'elevation' && isEdgeSub) return 'NA';
   // Wave Speed & Friction — applicable to pipe edges and surge tanks only
   if ((col.key === 'celerity' || col.key === 'friction') && !isEdgeSub && !isSurgeSub) return 'NA';
 

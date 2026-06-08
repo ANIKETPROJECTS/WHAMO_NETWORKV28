@@ -103,7 +103,7 @@ const COLS: Record<FilterKey, ColKey[]> = {
   surgeTank:   ['rowNum','unitToggle','label','nodeNum','elevation','stType','tankTop','tankBot',
                  'initWaterLevel','riserDiam','riserTop','hasShape','diameter',
                  'celerity','friction','hasAddedLoss','cplus','cminus','shapePairs','comment'],
-  flowBoundary:['rowNum','unitToggle','label','nodeNum','schedNum','qSchedPairs','comment'],
+  flowBoundary:['rowNum','unitToggle','label','nodeNum','elevation','schedNum','qSchedPairs','comment'],
   pump:        ['rowNum','unitToggle','label','nodeNum','elevation','pumpStatus','pumpType','rq','rhead','rspeed','rtorque','wr2','comment'],
   checkValve:  ['rowNum','unitToggle','label','nodeNum','elevation','valveStatus','valveDiam','comment'],
   turbine:     ['rowNum','unitToggle','label','nodeNum','elevation','turbineType','syncSpeed','turbineDiam','turbWr2','turbFriction','windage','operationMode','vScheduleNum','vSchedulePairs','comment'],
@@ -855,8 +855,8 @@ function RowCells({
         onChange={v => changeEdge('area', v)} testId={`cell-area-${row.id}`} />
     );
     case 'elevation': return (
-      <EditableCell key={col} value={!isFlow ? fmt(d.elevation) : ''} type="text" inputMode="decimal"
-        readOnly={isEdge || isFlow} dimmed={isEdge || isFlow}
+      <EditableCell key={col} value={!isEdge ? fmt(d.elevation) : ''} type="text" inputMode="decimal"
+        readOnly={isEdge} dimmed={isEdge}
         onChange={v => changeNode('elevation', v)} testId={`cell-elev-${row.id}`} />
     );
     case 'mode': return (
