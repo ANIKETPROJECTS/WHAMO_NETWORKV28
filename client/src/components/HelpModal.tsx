@@ -2,8 +2,6 @@ import { useState } from 'react';
 import { X, BookOpen, Layers, Link2, Table2, FileSpreadsheet, Play, FileText, Keyboard, HelpCircle, ChevronRight, FileDown, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import jsPDF from 'jspdf';
-import networkElementsImg from '@assets/image_1781443442780.png';
-import connectionsImg from '@assets/image_1781443447554.png';
 
 interface HelpModalProps {
   open: boolean;
@@ -1657,12 +1655,6 @@ function NetworkElements() {
       <SectionTitle>Network Elements</SectionTitle>
       <SectionLead>Each element in WHAMO represents a physical hydraulic component. Click any INSERT ribbon button to add an element to the canvas.</SectionLead>
 
-      <img
-        src={networkElementsImg}
-        alt="Network Elements overview"
-        className="w-full rounded-lg border border-slate-200 mb-5 shadow-sm"
-      />
-
       <FilterSelect
         label="Filter:"
         value={filter}
@@ -1971,14 +1963,8 @@ function Connections() {
 
   return (
     <>
-      <SectionTitle>Connections (Conduits)</SectionTitle>
+      <SectionTitle>Connections</SectionTitle>
       <SectionLead>Every pair of connected elements is linked by a conduit. Drawing and editing conduits is the primary way to build your network topology.</SectionLead>
-
-      <img
-        src={connectionsImg}
-        alt="Connections overview"
-        className="w-full rounded-lg border border-slate-200 mb-5 shadow-sm"
-      />
 
       <FilterSelect
         label="Filter:"
