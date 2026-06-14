@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, BookOpen, Layers, Link2, Table2, FileSpreadsheet, Play, FileText, Keyboard, HelpCircle, ChevronRight, FileDown, ChevronDown } from 'lucide-react';
+import { X, BookOpen, Layers, Link2, Table2, FileSpreadsheet, Play, FileText, Keyboard, HelpCircle, ChevronRight, FileDown, ChevronDown, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import jsPDF from 'jspdf';
 
@@ -17,6 +17,7 @@ interface Section {
 const SECTIONS: Section[] = [
   { id: 'getting-started',   icon: <BookOpen className="w-4 h-4" />,       label: 'Getting Started'     },
   { id: 'elements',          icon: <Layers className="w-4 h-4" />,          label: 'Network Elements'    },
+  { id: 'all-properties',    icon: <Settings className="w-4 h-4" />,        label: 'All Properties'      },
   { id: 'connections',       icon: <Link2 className="w-4 h-4" />,           label: 'Connections'         },
   { id: 'flex-table',        icon: <Table2 className="w-4 h-4" />,          label: 'Flex Table'          },
   { id: 'excel',             icon: <FileSpreadsheet className="w-4 h-4" />, label: 'Excel Import/Export' },
@@ -2182,9 +2183,264 @@ function TroubleshootingSection() {
   );
 }
 
+// ─── All Properties Section ───────────────────────────────────────────────────
+interface PropRow {
+  name: string;
+  unit?: string;
+  description: string;
+  meaning: string;
+  howToUse: string;
+}
+
+interface ElementProps {
+  id: string;
+  element: string;
+  badge: string;
+  badgeColor: string;
+  properties: PropRow[];
+}
+
+const ALL_ELEMENT_PROPS: ElementProps[] = [
+  {
+    id: 'reservoir',
+    element: 'Reservoir',
+    badge: 'Reservoir',
+    badgeColor: 'bg-blue-600',
+    properties: [
+      { name: 'Label / ID', description: 'Unique alphanumeric identifier for this element.', meaning: 'Used as the node label on the canvas and in the INP file. Must be unique across all elements.', howToUse: 'Type a short memorable tag such as "R1" or "UPSTRM". Avoid spaces.' },
+      { name: 'Comment', description: 'Free-text internal comment (c/C style).', meaning: 'Not used in simulation. Acts as a note for the engineer — visible only in the properties panel and INP file header.', howToUse: 'Describe the reservoir purpose, e.g. "Upper forebay — elevation taken from survey 2024".' },
+      { name: 'Node Number', description: 'Auto-assigned integer identifier.', meaning: 'The WHAMO engine references all nodes by number. This is set automatically and cannot normally be edited.', howToUse: 'Leave as assigned. It appears in the INP file as the node index.' },
+      { name: 'Elevation', unit: 'ft / m', description: 'Datum elevation of the node above mean sea level or project datum.', meaning: 'Used to compute pressure head at the node. All heads in WHAMO are absolute, so consistent datum across the network is critical.', howToUse: 'Enter the ground/pipe centreline elevation at this reservoir location. Match units (SI vs FPS) with the global unit toggle.' },
+      { name: 'Mode', description: 'Boundary condition type: Fixed HW or H Schedule.', meaning: '"Fixed HW" holds the head constant throughout the simulation. "H Schedule" lets the head vary over time according to a defined schedule.', howToUse: 'Use Fixed HW for steady reservoirs (tanks, constant-head sources). Use H Schedule when the upstream head fluctuates (tidal, operational level change).' },
+      { name: 'Reservoir Elev HW', unit: 'ft / m', description: 'Head water elevation — the water surface elevation in the reservoir.', meaning: 'This is the total head supplied at this boundary node. It drives the initial conditions and the steady-state solution.', howToUse: 'Enter the normal operating water surface elevation. Must be higher than the pipe centreline to drive flow.' },
+      { name: 'Loss Coefficient', description: 'Entry/exit head-loss coefficient at the reservoir face.', meaning: 'Accounts for local hydraulic losses as flow enters or leaves the reservoir. K=0 means no loss; K=1 is a typical abrupt entry.', howToUse: 'Use 0.5 for a sharp-edged entry, 0 for a well-rounded bell-mouth, or 1.0 for a projecting pipe. Leave blank to default to 0.' },
+      { name: 'H-Schedule #', description: 'Index of the head-time schedule used when Mode = H Schedule.', meaning: 'References a schedule table defined in the Flex Table that provides head values at each time step.', howToUse: 'First create the schedule in the Flex Table (Schedule tab), then enter its number here.' },
+    ],
+  },
+  {
+    id: 'node',
+    element: 'Node',
+    badge: 'Node',
+    badgeColor: 'bg-slate-500',
+    properties: [
+      { name: 'Label / ID', description: 'Unique alphanumeric identifier for this element.', meaning: 'Used as the node label on the canvas and in the INP file.', howToUse: 'Type a short tag such as "N1". Avoid spaces and duplicate labels.' },
+      { name: 'Comment', description: 'Free-text internal comment.', meaning: 'Not used in simulation. Serves as engineer notes.', howToUse: 'Describe the node location or purpose.' },
+      { name: 'Node Number', description: 'Auto-assigned integer identifier.', meaning: 'The WHAMO engine references this node by number in the INP file.', howToUse: 'Leave as assigned automatically.' },
+      { name: 'Elevation', unit: 'ft / m', description: 'Pipe centreline elevation at this node.', meaning: 'Used to convert pressure head to pressure and to compute HGL profiles along the pipe.', howToUse: 'Enter the elevation at the pipe centreline. Use the same datum as all other nodes in the network.' },
+    ],
+  },
+  {
+    id: 'junction',
+    element: 'Junction',
+    badge: 'Junction',
+    badgeColor: 'bg-green-600',
+    properties: [
+      { name: 'Label / ID', description: 'Unique alphanumeric identifier.', meaning: 'Identifies the junction in the INP file and on the canvas.', howToUse: 'Use a short label such as "J1" or "JCT_3WAY".' },
+      { name: 'Comment', description: 'Free-text internal comment.', meaning: 'Not used in simulation. Acts as engineer note.', howToUse: 'Describe the junction role, e.g. "3-way tee at pump station".' },
+      { name: 'Node Number', description: 'Auto-assigned integer.', meaning: 'WHAMO engine node index used in the INP file.', howToUse: 'Leave as assigned.' },
+      { name: 'Elevation', unit: 'ft / m', description: 'Pipe centreline elevation at this junction.', meaning: 'Sets the datum for head calculations through the junction.', howToUse: 'Enter the elevation at the pipe centreline for all pipes meeting at this junction.' },
+      { name: 'Demand', unit: 'm³/s or ft³/s', description: 'Steady-state lateral demand (withdrawal or injection) at this node.', meaning: 'Represents a consumer load or lateral inflow at the junction. Positive = withdrawal from network; negative = injection into network.', howToUse: 'Enter the design demand flow rate. Use 0 for a simple pass-through junction. Verify units match the global unit toggle.' },
+    ],
+  },
+  {
+    id: 'surge-tank',
+    element: 'Surge Tank',
+    badge: 'Surge Tank',
+    badgeColor: 'bg-purple-600',
+    properties: [
+      { name: 'Label / ID', description: 'Unique alphanumeric identifier.', meaning: 'Identifies the surge tank in the INP file and on the canvas.', howToUse: 'Use a short label such as "ST1".' },
+      { name: 'Comment', description: 'Free-text internal comment (c/C style).', meaning: 'Not used in simulation.', howToUse: 'Describe the surge tank design basis.' },
+      { name: 'Node Number', description: 'Auto-assigned integer.', meaning: 'WHAMO engine node index.', howToUse: 'Leave as assigned.' },
+      { name: 'Node Elevation', unit: 'ft / m', description: 'Elevation of the node at the base of the surge tank riser.', meaning: 'The reference elevation where the surge tank connects to the pipe.', howToUse: 'Set to the pipe centreline elevation at the surge tank location.' },
+      { name: 'Tank Type', description: 'Configuration type: SIMPLE, ORIFICE, CLOSED, AIR, or D/S.', meaning: 'SIMPLE = open standpipe; ORIFICE = restricted entry/exit; CLOSED = pressurised air vessel; AIR = air cushion; D/S = differential surge tank.', howToUse: 'Select the type that matches the physical installation. SIMPLE is the most common.' },
+      { name: 'Top Elevation', unit: 'ft / m', description: 'Elevation of the top of the surge tank.', meaning: 'Defines the overflow level. The simulation tracks whether the water level exceeds this limit.', howToUse: 'Set to the actual tank top/overflow elevation.' },
+      { name: 'Bottom Elevation', unit: 'ft / m', description: 'Elevation of the bottom of the surge tank.', meaning: 'Defines the drain/empty level. Water level cannot fall below this in the model.', howToUse: 'Set to the tank base or minimum operating level.' },
+      { name: 'Riser Diameter', unit: 'ft / m', description: 'Internal diameter of the riser pipe connecting the tank to the main conduit.', meaning: 'Controls the flow exchange rate between the main pipe and the tank. Smaller riser = more damping.', howToUse: 'Enter the actual riser pipe internal diameter.' },
+      { name: 'Initial Water Level', unit: 'ft / m', description: 'Water surface elevation in the tank at t = 0.', meaning: 'Sets the initial condition for the surge tank. Must be between Bottom and Top Elevation.', howToUse: 'Use the steady-state water level from a hydraulic analysis or from operating records.' },
+      { name: 'Area / Shape (S/A pairs)', description: 'Cross-sectional area vs elevation pairs for non-uniform tanks.', meaning: 'For tanks with varying cross-section, multiple (elevation, area) pairs define the tank geometry. Used to accurately track volume.', howToUse: 'Enter pairs in the Flex Table schedule grid. Leave empty for a constant-area (cylindrical) tank.' },
+    ],
+  },
+  {
+    id: 'flow-bc',
+    element: 'Flow BC',
+    badge: 'Flow BC',
+    badgeColor: 'bg-orange-500',
+    properties: [
+      { name: 'Label / ID', description: 'Unique alphanumeric identifier.', meaning: 'Identifies the flow boundary in the INP file and on the canvas.', howToUse: 'Use a short label such as "FBC1".' },
+      { name: 'Comment', description: 'Free-text internal comment.', meaning: 'Not used in simulation.', howToUse: 'Describe the flow boundary source or purpose.' },
+      { name: 'Node Number', description: 'Auto-assigned integer.', meaning: 'WHAMO engine node index.', howToUse: 'Leave as assigned.' },
+      { name: 'Flow Rate (Q)', unit: 'm³/s or ft³/s', description: 'Prescribed constant flow rate injected or extracted at this node.', meaning: 'Positive Q injects flow into the network; negative Q extracts flow. Used for steady-state and fixed-flow transient scenarios.', howToUse: 'Enter the design flow rate in the active unit system. Use positive for supply, negative for demand.' },
+      { name: 'Mode', description: 'Boundary condition type: Fixed Q or Q Schedule.', meaning: '"Fixed Q" holds the flow constant. "Q Schedule" varies the flow over time using a schedule table.', howToUse: 'Use Fixed Q for constant injection/extraction; use Q Schedule for pump start/stop or valve operation scenarios.' },
+      { name: 'Q-Schedule #', description: 'Index of the flow-time schedule when Mode = Q Schedule.', meaning: 'References a schedule table in the Flex Table that specifies flow at each time step.', howToUse: 'Create the schedule in the Flex Table (Schedule tab) first, then enter its number here.' },
+    ],
+  },
+  {
+    id: 'pump',
+    element: 'Pump',
+    badge: 'Pump',
+    badgeColor: 'bg-cyan-600',
+    properties: [
+      { name: 'Label / ID', description: 'Unique alphanumeric identifier for the pump link.', meaning: 'Identifies the pump conduit in the INP file.', howToUse: 'Use a short label such as "PMP1".' },
+      { name: 'Comment', description: 'Free-text internal comment.', meaning: 'Not used in simulation.', howToUse: 'Describe the pump type, model, or duty point.' },
+      { name: 'Length', unit: 'ft / m', description: 'Equivalent pipe length of the pump element.', meaning: 'Defines the hydraulic reach assigned to the pump conduit. Usually set to a small value representing the physical pump casing length.', howToUse: 'Set to the actual pump body length or a representative value (e.g. 1–5 m).' },
+      { name: 'Diameter', unit: 'ft / m', description: 'Internal diameter of the pump discharge pipe.', meaning: 'Used for velocity and head-loss calculations within the pump conduit reach.', howToUse: 'Match to the discharge pipe inside diameter.' },
+      { name: 'P-Char Curve (Q-H pairs)', description: 'Pump characteristic curve: at least 2 flow (Q) vs head (H) data points.', meaning: 'Defines the pump operating envelope. WHAMO interpolates between points to find the operating head at any flow rate.', howToUse: 'Enter pairs in the Flex Table (Pump tab) from shut-off head (Q=0) to maximum flow. At least 2 points required; 4–6 points recommended for accuracy.' },
+      { name: 'Rated Speed', unit: 'RPM', description: 'Synchronous speed of the pump motor.', meaning: 'Used in pump trip and speed transient calculations. Required for affinity-law scaling during rundown.', howToUse: 'Enter the nameplate synchronous speed, e.g. 1450 or 1750 RPM.' },
+      { name: 'Moment of Inertia (WR²)', unit: 'lb·ft² or kg·m²', description: 'Combined rotational inertia of pump and motor.', meaning: 'Governs the rate of speed rundown after a pump trip. Higher WR² = slower deceleration = smaller pressure transients.', howToUse: 'Obtain from the manufacturer datasheet. For preliminary analysis, estimate using the pump power as a guide.' },
+      { name: 'Rated Flow (Q rated)', unit: 'm³/s or ft³/s', description: 'Design flow at the best-efficiency point.', meaning: 'Reference point for affinity-law scaling.', howToUse: 'Enter the BEP flow from the pump curve.' },
+      { name: 'Rated Head (H rated)', unit: 'ft / m', description: 'Design head at the best-efficiency point.', meaning: 'Reference point for affinity-law scaling.', howToUse: 'Enter the BEP head from the pump curve.' },
+    ],
+  },
+  {
+    id: 'check-valve',
+    element: 'Check Valve',
+    badge: 'Check Valve',
+    badgeColor: 'bg-red-500',
+    properties: [
+      { name: 'Label / ID', description: 'Unique alphanumeric identifier for the check valve link.', meaning: 'Identifies the element in the INP file.', howToUse: 'Use a short label such as "CV1".' },
+      { name: 'Comment', description: 'Free-text internal comment.', meaning: 'Not used in simulation.', howToUse: 'Describe the valve type, size, or location.' },
+      { name: 'Length', unit: 'ft / m', description: 'Equivalent pipe length of the check valve element.', meaning: 'The hydraulic reach assigned to this conduit. Typically small.', howToUse: 'Set to the physical valve body length.' },
+      { name: 'Diameter', unit: 'ft / m', description: 'Internal diameter of the valve bore.', meaning: 'Determines velocity and head loss through the valve reach.', howToUse: 'Match to the valve nominal bore internal diameter.' },
+      { name: 'Cracking Pressure', unit: 'ft / m (head)', description: 'Minimum differential head required to open the valve.', meaning: 'The valve stays closed if the differential head across it is below this threshold.', howToUse: 'Use 0 for an ideal check valve. Set a small positive value (e.g. 0.1 m) for a spring-loaded check valve.' },
+      { name: 'Loss Coefficient (K)', description: 'Head-loss coefficient for flow through the open valve.', meaning: 'hL = K × V²/2g. Models the local resistance of the valve body when open.', howToUse: 'Obtain from the manufacturer (K typically 1–5 for swing check, 2–10 for lift check). Use 0 if loss is negligible.' },
+    ],
+  },
+  {
+    id: 'turbine',
+    element: 'Turbine',
+    badge: 'Turbine',
+    badgeColor: 'bg-yellow-600',
+    properties: [
+      { name: 'Label / ID', description: 'Unique alphanumeric identifier for the turbine link.', meaning: 'Identifies the turbine conduit in the INP file.', howToUse: 'Use a short label such as "T1".' },
+      { name: 'Comment', description: 'Free-text internal comment (c/C style).', meaning: 'Not used in simulation.', howToUse: 'Note the turbine model, rated output, or design conditions.' },
+      { name: 'TCHAR Type', description: 'Turbine characteristic curve type (TYPE 1, TYPE 2, etc.).', meaning: 'Selects the set of dimensionless characteristic curves used to model turbine behaviour. TYPE 1 is the generic Francis turbine.', howToUse: 'Select the type matching your turbine. Consult the WHAMO manual for available types.' },
+      { name: 'Sync Speed (SYNCSPD)', unit: 'RPM', description: 'Synchronous speed of the turbine-generator set.', meaning: 'The rated operating speed. Used in runaway and load-rejection transient calculations.', howToUse: 'Enter the nameplate synchronous speed from the generator datasheet.' },
+      { name: 'WR² — Moment of Inertia', unit: 'lb·ft² or kg·m²', description: 'Combined rotational inertia of turbine, shaft, and generator.', meaning: 'Controls the rate of speed rise during load rejection. Higher WR² = slower overspeed = smaller pressure transients.', howToUse: 'Obtain from the manufacturer. For Francis turbines, a typical range is 500–5000 lb·ft².' },
+      { name: 'Diameter', unit: 'ft / m', description: 'Runner diameter of the turbine.', meaning: 'Used in dimensionless specific speed calculations for the turbine characteristic curves.', howToUse: 'Enter the runner diameter from the turbine datasheet.' },
+      { name: 'Mode', description: 'Operational mode: TURBGOV (governor control) or EMERGENCY (gate schedule).', meaning: 'TURBGOV simulates normal governor action during a transient. EMERGENCY uses a prescribed gate-closure schedule for shutdown scenarios.', howToUse: 'Use TURBGOV for normal load rejection with governor response. Use EMERGENCY for rapid emergency shutdown sequences.' },
+      { name: 'Gate Schedule (V-Schedule)', description: 'Time vs gate-opening fraction pairs for EMERGENCY mode.', meaning: 'Prescribes the exact gate position at each time step during an emergency closure.', howToUse: 'Define in the Flex Table (Schedule tab) as (time, gate fraction) pairs starting from 1.0 (fully open) to 0.0 (fully closed). At least 2 pairs required.' },
+    ],
+  },
+  {
+    id: 'conduit',
+    element: 'Conduit',
+    badge: 'Conduit',
+    badgeColor: 'bg-slate-600',
+    properties: [
+      { name: 'Label / ID', description: 'Unique alphanumeric identifier for this conduit/pipe.', meaning: 'Identifies the pipe in the INP file and the Flex Table.', howToUse: 'Auto-generated but editable, e.g. "P1", "MAIN-1".' },
+      { name: 'Length (L)', unit: 'ft / m', description: 'Physical pipe length between upstream and downstream nodes.', meaning: 'The most sensitive parameter in water hammer analysis. Longer pipes = longer wave travel times = different resonance frequencies.', howToUse: 'Measure the actual pipe centreline length. Do not use horizontal plan distance for steep pipelines — use the 3D length.' },
+      { name: 'Diameter (D)', unit: 'ft / m', description: 'Internal (bore) diameter of the pipe.', meaning: 'Determines flow velocity and head loss. Also used in wave speed calculation when E and WT are provided.', howToUse: 'Use the inside diameter (not nominal or outside diameter). Convert nominal sizes using standard pipe tables.' },
+      { name: 'Celerity (a)', unit: 'm/s or ft/s', description: 'Pressure wave speed (acoustic velocity) in the pipe.', meaning: 'The fundamental parameter of water hammer. Governs the Joukowsky pressure rise (ΔH = aΔV/g) and wave travel time. Typical range: 200–1400 m/s.', howToUse: 'Calculate from pipe material using a=4720/√(1+(3·10⁵/E)·(D/WT)) or enter directly if known. For steel: ~1200 m/s; HDPE: ~300 m/s; concrete: ~1000 m/s.' },
+      { name: 'Friction (f)', description: 'Darcy-Weisbach friction factor or Manning\'s n, depending on method selected.', meaning: 'Controls steady-state head loss and the attenuation of transient waves. Darcy-Weisbach f = dimensionless (typical 0.01–0.04); Manning n = s/m^(1/3) (typical 0.010–0.015).', howToUse: 'For new steel: f=0.015. For old cast iron: f=0.025–0.04. For HDPE: f=0.009. Alternatively enter Manning n and let WHAMO compute f = 185·n²/D^(1/3).' },
+      { name: 'E (Young\'s Modulus)', unit: 'psi or Pa', description: 'Modulus of elasticity of the pipe wall material.', meaning: 'Used with WT to automatically compute wave speed. Steel ≈ 30,000,000 psi; HDPE ≈ 130,000 psi.', howToUse: 'Enter along with WT instead of specifying Celerity directly. The formula c=4720/√(1+(3·10⁵/E)·(D/WT)) is shown in the panel.' },
+      { name: 'WT (Wall Thickness)', unit: 'ft / m', description: 'Pipe wall thickness.', meaning: 'Used with E to compute wave speed. Thicker walls → higher wave speed (stiffer pipe).', howToUse: 'Enter the nominal wall thickness from pipe specifications. Convert to the active unit system.' },
+      { name: 'Manning\'s n', description: 'Manning\'s roughness coefficient for computing friction factor.', meaning: 'An alternative to specifying the Darcy-Weisbach f directly. WHAMO converts n to f using f=185·n²/D^(1/3).', howToUse: 'Typical values: smooth plastic 0.009, concrete 0.011–0.013, cast iron 0.012–0.015, corroded steel 0.015–0.025.' },
+    ],
+  },
+  {
+    id: 'dummy-pipe',
+    element: 'Dummy Pipe',
+    badge: 'Dummy Pipe',
+    badgeColor: 'bg-gray-400',
+    properties: [
+      { name: 'Label / ID', description: 'Unique alphanumeric identifier.', meaning: 'Identifies the dummy pipe element in the INP file.', howToUse: 'Use a label such as "DP1".' },
+      { name: 'Comment', description: 'Free-text internal comment.', meaning: 'Not used in simulation.', howToUse: 'Note why the dummy pipe exists, e.g. "Topology connector only — zero length".' },
+      { name: 'Length', unit: 'ft / m', description: 'Nominal pipe length (typically near-zero or 1).', meaning: 'A dummy pipe is a zero-resistance connection used to satisfy topology or to connect special elements. Set length small but non-zero to avoid division-by-zero.', howToUse: 'Use the minimum value (e.g. 0.001 m or 1 ft) to keep it computationally stable.' },
+      { name: 'Diameter', unit: 'ft / m', description: 'Pipe bore diameter.', meaning: 'Used for velocity calculations. Match to the adjacent pipe to minimise any numerical artefacts.', howToUse: 'Set to match the adjacent conduit diameter.' },
+      { name: 'Celerity', unit: 'm/s or ft/s', description: 'Wave speed in the dummy pipe.', meaning: 'Should match the connected conduit\'s celerity. Using a very high celerity makes the dummy pipe act as a rigid link.', howToUse: 'Set equal to the adjacent conduit\'s celerity, or use 1200 m/s (steel equivalent) for a rigid connection.' },
+    ],
+  },
+];
+
+const PROP_FILTER_OPTIONS = [
+  { value: 'all',         label: 'All Elements' },
+  { value: 'reservoir',   label: 'Reservoir' },
+  { value: 'node',        label: 'Node' },
+  { value: 'junction',    label: 'Junction' },
+  { value: 'surge-tank',  label: 'Surge Tank' },
+  { value: 'flow-bc',     label: 'Flow BC' },
+  { value: 'pump',        label: 'Pump' },
+  { value: 'check-valve', label: 'Check Valve' },
+  { value: 'turbine',     label: 'Turbine' },
+  { value: 'conduit',     label: 'Conduit' },
+  { value: 'dummy-pipe',  label: 'Dummy Pipe' },
+];
+
+function ElementPropCard({ id, element, badge, badgeColor, properties }: ElementProps) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="mb-4 rounded-lg border border-slate-200 overflow-hidden shadow-sm">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-3 px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
+      >
+        <span className={`inline-block text-white text-[10px] font-bold px-2 py-0.5 rounded ${badgeColor}`}>
+          {badge}
+        </span>
+        <span className="font-semibold text-slate-700 text-sm flex-1">{element} Properties</span>
+        <ChevronDown className={cn('w-4 h-4 text-slate-400 transition-transform', open && 'rotate-180')} />
+      </button>
+
+      {open && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="bg-slate-100">
+                <th className="text-left px-4 py-2 font-semibold text-slate-600 border-b border-slate-200 w-[16%]">Property</th>
+                <th className="text-left px-4 py-2 font-semibold text-slate-600 border-b border-slate-200 w-[9%]">Unit</th>
+                <th className="text-left px-4 py-2 font-semibold text-slate-600 border-b border-slate-200 w-[25%]">Description</th>
+                <th className="text-left px-4 py-2 font-semibold text-slate-600 border-b border-slate-200 w-[28%]">Meaning</th>
+                <th className="text-left px-4 py-2 font-semibold text-slate-600 border-b border-slate-200 w-[22%]">How to Use</th>
+              </tr>
+            </thead>
+            <tbody>
+              {properties.map((p, i) => (
+                <tr key={p.name} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                  <td className="px-4 py-2 font-medium text-slate-800 border-b border-slate-100 align-top">{p.name}</td>
+                  <td className="px-4 py-2 text-slate-500 border-b border-slate-100 align-top whitespace-nowrap">{p.unit ?? '—'}</td>
+                  <td className="px-4 py-2 text-slate-700 border-b border-slate-100 align-top">{p.description}</td>
+                  <td className="px-4 py-2 text-slate-600 border-b border-slate-100 align-top">{p.meaning}</td>
+                  <td className="px-4 py-2 text-slate-600 border-b border-slate-100 align-top">{p.howToUse}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AllPropertiesSection() {
+  const [filter, setFilter] = useState('all');
+  const filtered = filter === 'all' ? ALL_ELEMENT_PROPS : ALL_ELEMENT_PROPS.filter(e => e.id === filter);
+
+  return (
+    <>
+      <SectionTitle>All Properties</SectionTitle>
+      <SectionLead>
+        Every configurable property for every element type — what it means, why it matters, and how to set it correctly. Use the filter to focus on a single element.
+      </SectionLead>
+
+      <FilterSelect
+        label="Filter:"
+        value={filter}
+        options={PROP_FILTER_OPTIONS}
+        onChange={setFilter}
+      />
+
+      {filtered.map(ep => (
+        <ElementPropCard key={ep.id} {...ep} />
+      ))}
+    </>
+  );
+}
+
+// ─── SECTION_CONTENT ──────────────────────────────────────────────────────────
 const SECTION_CONTENT: Record<string, React.ReactNode> = {
   'getting-started':  <GettingStarted />,
   'elements':         <NetworkElements />,
+  'all-properties':   <AllPropertiesSection />,
   'connections':      <Connections />,
   'flex-table':       <FlexTableSection />,
   'excel':            <ExcelSection />,
