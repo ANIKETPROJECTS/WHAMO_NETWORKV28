@@ -12,3 +12,9 @@ id = "s_DJjrqwtY4gyu5Zd-Blw"
 uri = "file://PCHAR_Block_Mathematical_Derivation_Pump.docx"
 type = "word_document"
 title = "PCHAR Block — Mathematical Derivation for Pump"
+
+[[outputs]]
+id = "YmWdGhk0xFKNhZUdrsbix"
+uri = "file://WHAMO_Designer_Phase1_Status_Report.docx"
+type = "word_document"
+title = "WHAMO Designer — Phase 1 Status Report"
