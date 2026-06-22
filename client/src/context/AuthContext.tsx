@@ -1,10 +1,23 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { queryClient } from "@/lib/queryClient";
 
-interface AuthUser {
+export type UserRole = "masterAdmin" | "normalUser";
+export type SectionKey =
+  | "designer"
+  | "projects"
+  | "simulation"
+  | "visualization"
+  | "outputRequests"
+  | "flexTable"
+  | "excelIO"
+  | "networkSettings";
+
+export interface AuthUser {
   id: string;
   email: string;
   fullName: string;
+  role: UserRole;
+  sectionAccess: SectionKey[];
 }
 
 interface AuthContextType {
@@ -15,6 +28,8 @@ interface AuthContextType {
   logout: () => void;
   register: (fullName: string, email: string, password: string) => Promise<void>;
   updateUser: (userData: AuthUser, newToken?: string) => void;
+  hasSection: (section: SectionKey) => boolean;
+  isMasterAdmin: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -47,6 +62,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setToken(newToken);
     }
   }, []);
+
+  const hasSection = useCallback(
+    (section: SectionKey) => {
+      if (!user) return false;
+      if (user.role === "masterAdmin") return true;
+      return user.sectionAccess.includes(section);
+    },
+    [user],
+  );
+
+  const isMasterAdmin = useCallback(() => user?.role === "masterAdmin", [user]);
 
   useEffect(() => {
     const stored = localStorage.getItem(TOKEN_KEY);
@@ -87,7 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, logout, register, updateUser }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, logout, register, updateUser, hasSection, isMasterAdmin }}>
       {children}
     </AuthContext.Provider>
   );

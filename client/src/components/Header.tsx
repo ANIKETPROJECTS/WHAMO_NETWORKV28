@@ -57,6 +57,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useLocation } from "wouter";
 import {
   Select,
   SelectContent,
@@ -279,7 +280,8 @@ export function Header({
   isProjectOpen = false,
   onActivate,
 }: HeaderProps) {
-  const { user, logout } = useAuth();
+  const { user, logout, isMasterAdmin } = useAuth();
+  const [, setLocation] = useLocation();
   const [showSettings, setShowSettings] = useState(false);
   const { toast } = useToast();
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -619,7 +621,21 @@ export function Header({
                     <ChevronDown className="w-3 h-3 text-slate-400 group-hover:text-slate-600 transition-colors flex-shrink-0" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48 shadow-lg">
+                <DropdownMenuContent align="end" className="w-52 shadow-lg">
+                  {isMasterAdmin() && (
+                    <>
+                      <DropdownMenuItem
+                        onClick={() => setLocation("/admin")}
+                        className="flex items-center gap-2 cursor-pointer text-[13px]"
+                        style={{ fontFamily: 'Poppins, sans-serif' }}
+                        data-testid="menu-item-admin"
+                      >
+                        <ShieldCheck className="w-4 h-4 text-blue-600" />
+                        <span className="text-blue-700 font-semibold">User Management</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
                   <DropdownMenuItem
                     onClick={() => setShowSettings(true)}
                     className="flex items-center gap-2 cursor-pointer text-[13px]"

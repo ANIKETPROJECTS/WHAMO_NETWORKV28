@@ -6,6 +6,18 @@ import { userStore } from "../auth/inMemoryUserStore";
 const JWT_SECRET = process.env.JWT_SECRET || "whamo-designer-jwt-fallback";
 const JWT_EXPIRES = "7d";
 
+function makeToken(user: { id: string; email: string; fullName: string; role: string; sectionAccess: string[] }) {
+  return jwt.sign(
+    { id: user.id, email: user.email, fullName: user.fullName, role: user.role, sectionAccess: user.sectionAccess },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRES },
+  );
+}
+
+function publicUser(user: { id: string; email: string; fullName: string; role: string; sectionAccess: string[] }) {
+  return { id: user.id, email: user.email, fullName: user.fullName, role: user.role, sectionAccess: user.sectionAccess };
+}
+
 export async function register(req: Request, res: Response) {
   try {
     const { fullName, email, password } = req.body;
@@ -50,16 +62,7 @@ export async function login(req: Request, res: Response) {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    const token = jwt.sign(
-      { id: user.id, email: user.email, fullName: user.fullName },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRES }
-    );
-
-    return res.json({
-      token,
-      user: { id: user.id, email: user.email, fullName: user.fullName },
-    });
+    return res.json({ token: makeToken(user), user: publicUser(user) });
   } catch (err) {
     console.error("Login error:", err);
     return res.status(500).json({ message: "Server error" });
@@ -67,7 +70,15 @@ export async function login(req: Request, res: Response) {
 }
 
 export async function getMe(req: Request, res: Response) {
-  return res.json({ user: (req as any).user });
+  try {
+    const reqUser = (req as any).user;
+    // Refresh from DB so sectionAccess is always current
+    const fresh = await userStore.findById(reqUser.id);
+    if (!fresh) return res.status(404).json({ message: "User not found" });
+    return res.json({ user: publicUser(fresh) });
+  } catch {
+    return res.status(500).json({ message: "Server error" });
+  }
 }
 
 export async function updateProfile(req: Request, res: Response) {
@@ -96,16 +107,7 @@ export async function updateProfile(req: Request, res: Response) {
 
     if (!updated) return res.status(404).json({ message: "User not found" });
 
-    const token = jwt.sign(
-      { id: updated.id, email: updated.email, fullName: updated.fullName },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRES }
-    );
-
-    return res.json({
-      token,
-      user: { id: updated.id, email: updated.email, fullName: updated.fullName },
-    });
+    return res.json({ token: makeToken(updated), user: publicUser(updated) });
   } catch (err) {
     console.error("Update profile error:", err);
     return res.status(500).json({ message: "Server error" });
