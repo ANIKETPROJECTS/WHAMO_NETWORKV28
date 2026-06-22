@@ -18,3 +18,9 @@ id = "YmWdGhk0xFKNhZUdrsbix"
 uri = "file://WHAMO_Designer_Phase1_Status_Report.docx"
 type = "word_document"
 title = "Phase 1 Status Report (corrected)"
+
+[[outputs]]
+id = "sNoaI7k9j1PWJGx9M4VZ4"
+uri = "file://WHAMO_Phase1_Current_Status.docx"
+type = "word_document"
+title = "WHAMO Phase 1 — Current Status"
