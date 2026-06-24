@@ -572,6 +572,17 @@ export function PropertiesPanel() {
       }));
     }
 
+    // Carry over any unsaved local-only fields (materialId, manningsN, etc.)
+    // that live in formData but haven't been persisted to the store yet.
+    // Without this, the useEffect that re-reads from the store after the unit
+    // change will overwrite them and they appear to be cleared.
+    const localOnlyFields = ['materialId', 'manningsN', 'friction', 'pipeWT'];
+    localOnlyFields.forEach(key => {
+      if (!(key in dataUpdate) && formData[key] != null && formData[key] !== '') {
+        dataUpdate[key] = formData[key];
+      }
+    });
+
     if (isNode) {
       updateNodeData(selectedElementId, dataUpdate);
     } else {
