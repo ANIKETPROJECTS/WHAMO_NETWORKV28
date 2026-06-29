@@ -497,7 +497,7 @@ export function generateInpFile(nodes: WhamoNode[], edges: WhamoEdge[], autoDown
       addL(tc.head.join(' '));
     }
     if (tc.qMatrix.length > 0) {
-      addL('QMATRIX');
+      addL('Q');
       tc.qMatrix.forEach(row => addL(row.join(' ')));
     }
     if (tc.effMatrix.length > 0) {

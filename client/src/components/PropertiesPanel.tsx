@@ -242,7 +242,7 @@ function TcharEditor({ tType, activeTc, updateTcharData }: {
               onBlur={e => save({ head: textToArr(e.target.value) })} />
           </div>
           <div className="grid gap-1">
-            <Label className="text-[10px] font-medium">QMATRIX (one row per gate value)</Label>
+            <Label className="text-[10px] font-medium">Q (one row per gate value)</Label>
             <textarea data-testid="textarea-qmatrix"
               className="w-full border rounded text-[10px] font-mono p-1.5 resize-none h-24 focus:outline-none focus:ring-1 focus:ring-teal-400"
               value={qText}

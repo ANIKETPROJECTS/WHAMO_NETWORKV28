@@ -181,7 +181,7 @@ function parseElementProperties(lines: string[]): ParsedElements {
       }
       if (/^GATE\b/i.test(upper)) { tcharSection = 'gate'; continue; }
       if (/^HEAD\b/i.test(upper)) { tcharSection = 'head'; continue; }
-      if (/^QMATRIX\b/i.test(upper)) { tcharSection = 'qmatrix'; continue; }
+      if (/^QMATRIX\b/i.test(upper) || /^Q\b/i.test(upper)) { tcharSection = 'qmatrix'; continue; }
       if (/^EFFICIENCY\b/i.test(upper)) { tcharSection = 'efficiency'; continue; }
       const numsT = trimmed.split(/\s+/).map(parseFloat).filter(n => !isNaN(n));
       if (numsT.length > 0) {
